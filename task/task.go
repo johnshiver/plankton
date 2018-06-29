@@ -1,34 +1,52 @@
 package task
 
-import "sync"
+import (
+	"fmt"
+	"hash/fnv"
+	"strings"
+	"sync"
+)
 
 type TaskRunner interface {
 	Run()
 	// requires TaskRuner to have an embedded Task
 	GetTask() *Task
+	SetTaskParams()
 }
 
 type Task struct {
-	name            string
-	children        []TaskRunner
-	parent          *Task
-	results_channel chan string
-	state           string
+	// TODO: does children need to be TaskRunner or can I get away with making everything
+	//       a task
+	Name           string
+	Children       []TaskRunner
+	Parent         *Task
+	ResultsChannel chan string
+	State          string
+	Params         []string
 }
 
 func NewTask(name string, children []TaskRunner, parent *Task) *Task {
 	return &Task{
-		name:            name,
-		children:        children,
-		parent:          parent,
-		results_channel: make(chan string),
-		state:           "waiting",
+		Name:           name,
+		Children:       children,
+		Parent:         parent,
+		ResultsChannel: make(chan string),
+		State:          "waiting",
+		Params:         []string{},
 	}
 }
 
-func (ts *Task) GetState() string {
-	return ts.state
+func hash(s string) uint32 {
+	h := fnv.New32a()
+	h.Write([]byte(s))
+	return h.Sum32()
 
+}
+
+func (ts *Task) GetTaskHash() string {
+	param_string := strings.Join(ts.Params, "_")
+	param_hash := hash(param_string)
+	return fmt.Sprintf("{}_{}_{}", ts.Name, param_string, param_hash)
 }
 
 func (ts *Task) SetState(new_state string) (string, error) {
@@ -48,16 +66,17 @@ func (ts *Task) SetState(new_state string) (string, error) {
 	}
 
 	if !valid_state_param {
-		return "", error
+		return "", fmt.Errorf("Invalid state on task {}", new_state)
 	}
 
-	ts.state = new_state
-	return ts.state, nil
+	ts.State = new_state
+	return ts.State, nil
 
 }
 
 func RunTask(tsk_runner TaskRunner, wg *sync.WaitGroup) {
 	tsk_runner.GetTask().SetState("running")
+	fmt.Printf("Running Task: %s\n", tsk_runner.GetTask().Name)
 	tsk_runner.Run()
 	wg.Done()
 	tsk_runner.GetTask().SetState("complete")
