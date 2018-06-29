@@ -13,7 +13,7 @@ type HiTask struct {
 func (ht *HiTask) Run() {
 	for i := 0; i < 20; i++ {
 		ht.task.Parent.ResultsChannel <- "HI"
-		time.Sleep(2000 * time.Millisecond)
+		time.Sleep(1000 * time.Millisecond)
 	}
 }
 

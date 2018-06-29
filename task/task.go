@@ -75,10 +75,10 @@ func (ts *Task) SetState(new_state string) (string, error) {
 }
 
 func RunTask(tsk_runner TaskRunner, wg *sync.WaitGroup) {
+	defer wg.Done()
 	tsk_runner.GetTask().SetState("running")
 	fmt.Printf("Running Task: %s\n", tsk_runner.GetTask().Name)
 	tsk_runner.Run()
-	wg.Done()
 	tsk_runner.GetTask().SetState("complete")
 
 }

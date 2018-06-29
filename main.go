@@ -1,8 +1,6 @@
 package main
 
 import (
-	"fmt"
-
 	"github.com/johnshiver/plankton/scheduler"
 )
 
@@ -15,6 +13,5 @@ func main() {
 	hiLoAgg := NewHiLoTask(nil)
 	my_scheduler, _ := scheduler.NewTaskScheduler(hiLoAgg)
 	my_scheduler.Start()
-	fmt.Println("Agg task done!")
 
 }

@@ -1,7 +1,9 @@
 package main
 
 import (
+	"fmt"
 	"sync"
+	"time"
 
 	"github.com/johnshiver/plankton/task"
 )
@@ -50,11 +52,9 @@ func (hl *HiLoAggregatorTask) Run() {
 
 	}()
 
-	// consume results
-	results := []string{}
 	for result := range hl.task.ResultsChannel {
-		results = append(results, result)
-		continue
-		// fmt.Println(result)
+		fmt.Println(result)
 	}
+	time.Sleep(5 * time.Second)
+
 }

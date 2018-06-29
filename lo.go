@@ -11,9 +11,9 @@ type LoTask struct {
 }
 
 func (lt *LoTask) Run() {
-	for i := 0; i < 20; i++ {
+	for i := 0; i < 2; i++ {
 		lt.task.Parent.ResultsChannel <- "LO"
-		time.Sleep(2000 * time.Millisecond)
+		time.Sleep(200 * time.Millisecond)
 	}
 }
 

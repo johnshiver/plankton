@@ -28,8 +28,11 @@ func (ts *TaskScheduler) Start() {
 	scheduler_wg.Add(1)
 	go task.RunTask(ts.root_runner, scheduler_wg)
 
+	finished := make(chan struct{})
+
 	go func() {
 		scheduler_wg.Wait()
+		finished <- struct{}{}
 	}()
 
 	// TODO: can i make a global 'results' channel that i can
@@ -37,21 +40,26 @@ func (ts *TaskScheduler) Start() {
 	// the schduler to get results
 
 	ticker := time.NewTicker(time.Second * 5)
-
-	root_task := ts.root_runner.GetTask()
-
-	for {
+	done := false
+	for !done {
 		select {
-		case msg := <-root_task.ResultsChannel:
-			fmt.Println(msg)
 		case <-ticker.C:
 			fmt.Println(strings.Repeat("-", 45))
 			fmt.Println("Current DAG State")
 			fmt.Println(strings.Repeat("-", 45))
 			fmt.Println(ts.getDAGState())
 			fmt.Println(strings.Repeat("-", 45))
+		case <-finished:
+			fmt.Println("Finished!")
+			done = true
 		}
 	}
+	fmt.Println(strings.Repeat("-", 45))
+	fmt.Println("Current DAG State")
+	fmt.Println(strings.Repeat("-", 45))
+	fmt.Println(ts.getDAGState())
+	fmt.Println(strings.Repeat("-", 45))
+	return
 
 }
 
