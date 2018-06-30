@@ -14,7 +14,7 @@ type TaskScheduler struct {
 }
 
 func NewTaskScheduler(task_runner task.TaskRunner) (*TaskScheduler, error) {
-	dag_is_good := VerifyDAG(task_runner.GetTask())
+	dag_is_good := task.VerifyDAG(task_runner.GetTask())
 	if !dag_is_good {
 		return nil, fmt.Errorf("Root task runner isnt a valid Task DAG\n")
 	}
@@ -85,35 +85,4 @@ func (ts *TaskScheduler) getDAGState() string {
 
 	}
 	return strings.Join(dag_state_strings, "\n")
-}
-
-// TODO: do a better job detecting the D part
-
-// TODO: we also need some way of creating a map of tasks
-//       to check acyclical property
-//       Going to implement task_has on Task
-func VerifyDAG(root_task *task.Task) bool {
-
-	task_set := make(map[string]struct{})
-
-	task_queue := []*task.Task{}
-	task_queue = append(task_queue, root_task)
-	for len(task_queue) > 0 {
-		curr := task_queue[0]
-		task_queue = task_queue[1:]
-
-		_, ok := task_set[curr.GetTaskHash()]
-		if ok {
-			return false
-		} else {
-			task_set[curr.GetTaskHash()] = struct{}{}
-		}
-		for _, child := range curr.Children {
-			task_queue = append(task_queue, child.GetTask())
-		}
-
-	}
-
-	return true
-
 }
