@@ -3,6 +3,7 @@ package task
 import (
 	"fmt"
 	"hash/fnv"
+	"reflect"
 	"strings"
 	"sync"
 )
@@ -21,7 +22,12 @@ type Task struct {
 	Parent         TaskRunner
 	ResultsChannel chan string
 	State          string
-	Params         []string
+	Params         []*TaskParam
+}
+
+type TaskParam struct {
+	Name  string
+	Value string
 }
 
 func NewTask(name string, children []TaskRunner, parent TaskRunner) *Task {
@@ -31,7 +37,7 @@ func NewTask(name string, children []TaskRunner, parent TaskRunner) *Task {
 		Parent:         parent,
 		ResultsChannel: make(chan string),
 		State:          "waiting",
-		Params:         []string{},
+		Params:         []*TaskParam{},
 	}
 }
 
@@ -47,15 +53,21 @@ func (ts *Task) AddChild(child TaskRunner) []TaskRunner {
 	return ts.Children
 }
 
-func (ts *Task) GetTaskHash() string {
-	param_string := strings.Join(ts.Params, "_")
+func (ts *Task) GetHash() string {
+	params_to_string := []string{}
+	for _, parm := range ts.Params {
+		params_to_string = append(params_to_string, fmt.Sprintf("%s:%s", parm.Name, parm.Value))
+	}
+	param_string := strings.Join(params_to_string, "_")
 	param_hash := hash(param_string)
 	return fmt.Sprintf("{}_{}_{}", ts.Name, param_string, param_hash)
 }
 
-func (ts *Task) SetTaskParams(params []string) []string {
-	ts.Params = params
-	return ts.Params
+func SetTaskParams(tr TaskRunner) []*TaskParam {
+
+	t := reflect.TypeOf(tr)
+
+	return tr.GetTask().Params
 }
 
 func (ts *Task) SetState(new_state string) (string, error) {
@@ -105,11 +117,11 @@ func VerifyDAG(root_task *Task) bool {
 		curr := task_queue[0]
 		task_queue = task_queue[1:]
 
-		_, ok := task_set[curr.GetTaskHash()]
+		_, ok := task_set[curr.GetHash()]
 		if ok {
 			return false
 		} else {
-			task_set[curr.GetTaskHash()] = struct{}{}
+			task_set[curr.GetHash()] = struct{}{}
 		}
 		for _, child := range curr.Children {
 			task_queue = append(task_queue, child.GetTask())
