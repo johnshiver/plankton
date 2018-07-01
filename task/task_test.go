@@ -3,6 +3,8 @@ package task
 import (
 	"reflect"
 	"testing"
+
+	"github.com/davecgh/go-spew/spew"
 )
 
 type TestTask struct {
@@ -14,7 +16,6 @@ type TestTask struct {
 func (tt *TestTask) Run() {
 	return
 }
-
 func (tt *TestTask) GetTask() *Task {
 	return tt.task
 }
@@ -95,47 +96,42 @@ func TestSetTaskParams(t *testing.T) {
 
 }
 
-//func TestGetHash(t *testing.T) {
-//	test1 := createTestTaskRunner("test1", 1)
-//	test2 := createTestTaskRunner("test1", 1)
-//
-//	test3 := createTestTaskRunner("test3", 2)
-//	test4 := createTestTaskRunner("test3", 3)
-//
-//	test5 := createTestTaskRunner("test5", 1)
-//	test6 := createTestTaskRunner("test6", 1)
-//
-//	test7 := createTestTaskRunner("test7", 2)
-//	test8 := createTestTaskRunner("test8", 3)
-//
-//	var tests = []struct {
-//		input []TaskRunner
-//		want  bool
-//	}{
-//		{[]TaskRunner{test1, test2}, true},
-//		{[]TaskRunner{test3, test4}, false},
-//		{[]TaskRunner{test5, test6}, false},
-//		{[]TaskRunner{test7, test8}, false},
-//	}
-//	for _, test := range tests {
-//		task_hashes := []string{}
-//		for _, runner := range test.input {
-//			SetTaskParams(runner)
-//			task_hashes = append(task_hashes, runner.GetTask().GetHash())
-//		}
-//
-//		first_hash := task_hashes[0]
-//		result := true
-//		for _, hash := range task_hashes[1:] {
-//			if result == false {
-//				break
-//			}
-//			result = hash == first_hash
-//		}
-//
-//		if output := VerifyDAG(test.input); output != test.want {
-//			t.Errorf("VerifyDAG(%q) = %v", test.input, output)
-//		}
-//	}
-//
-//}
+func TestGetHash(t *testing.T) {
+	test1 := createTestTaskRunner("test1", 1)
+	test2 := createTestTaskRunner("test1", 1)
+
+	test3 := createTestTaskRunner("test3", 2)
+	test4 := createTestTaskRunner("test3", 3)
+
+	test5 := createTestTaskRunner("test5", 1)
+	test6 := createTestTaskRunner("test6", 1)
+
+	test7 := createTestTaskRunner("test7", 2)
+	test8 := createTestTaskRunner("test8", 3)
+
+	var tests = []struct {
+		input []TaskRunner
+		want  bool
+	}{
+		{[]TaskRunner{test1, test2}, true},
+		{[]TaskRunner{test3, test4}, false},
+		{[]TaskRunner{test5, test6}, false},
+		{[]TaskRunner{test7, test8}, false},
+	}
+	for _, test := range tests {
+		task_hashes := []string{}
+		for _, runner := range test.input {
+			SetTaskParams(runner)
+			task_hashes = append(task_hashes, runner.GetTask().GetHash())
+		}
+
+		first_hash, second_hash := task_hashes[0], task_hashes[1]
+		result := first_hash == second_hash
+
+		if result != test.want {
+			test_input := spew.Sdump(test.input)
+			t.Errorf("GetHash Failed %s got %v not %v", string(test_input), result, test.want)
+		}
+	}
+
+}
