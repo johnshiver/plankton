@@ -88,7 +88,7 @@ func TestSetTaskParams(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		if output := SetTaskParams(test.input); !(reflect.DeepEqual(output, test.want)) {
+		if output, _ := SetTaskParams(test.input); !(reflect.DeepEqual(output, test.want)) {
 			t.Errorf("SetTaskParams(%v) = %v", test.input, output)
 		}
 	}
