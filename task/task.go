@@ -41,7 +41,7 @@ func NewTask(name string, children []TaskRunner, parent TaskRunner) *Task {
 	}
 }
 
-func hash(s string) uint32 {
+func makeStringHash(s string) uint32 {
 	h := fnv.New32a()
 	h.Write([]byte(s))
 	return h.Sum32()
@@ -56,15 +56,37 @@ func hash(s string) uint32 {
 
 func (ts *Task) GetHash() string {
 	param_strings := []string{}
-	for _, parm := range ts.Params {
-		param_strings = append(param_strings, fmt.Sprintf("%s:%s", parm.Name, parm.Data))
+
+	for _, param := range ts.Params {
+		// TODO: support more kinds of fields
+		var data_val, data_type string
+
+		// Should support all types in SetParam
+		switch param.Data.Kind() {
+		case reflect.Int:
+			data_val = fmt.Sprintf("%v", param.Data.Int())
+			data_type = "INT"
+		case reflect.String:
+			data_val = param.Data.String()
+			data_type = "STR"
+		default:
+			// TODO: think about what to do in this case
+			fmt.Println("Param not supported in hashing")
+		}
+
+		data_hash_elems := []string{
+			param.Name,
+			data_val,
+			data_type,
+		}
+		param_strings = append(param_strings, strings.Join(data_hash_elems, ":"))
 	}
 	param_string := strings.Join(param_strings, "_")
-	param_hash := hash(param_string)
+	param_hash := makeStringHash(param_string)
 	hash_elements := []string{
 		ts.Name,
 		param_string,
-		string(param_hash),
+		fmt.Sprintf("%v", param_hash),
 	}
 	return strings.Join(hash_elements, "_")
 }
@@ -167,6 +189,7 @@ func (ts *Task) SetState(new_state string) (string, error) {
 
 // Runs a TaskRunner, sets state and notifies waiting group when run is done
 func RunTaskRunner(tsk_runner TaskRunner, wg *sync.WaitGroup) {
+	// TODO: add that failsafe i read in rob fig's cron project
 	defer wg.Done()
 	tsk_runner.GetTask().SetState("running")
 	fmt.Printf("Running Task: %s\n", tsk_runner.GetTask().Name)

@@ -97,8 +97,6 @@ func TestSetTaskParams(t *testing.T) {
 
 	for _, test := range tests {
 		if output, _ := SetTaskParams(test.input); !(reflect.DeepEqual(output, test.want)) {
-			spew.Println(output[0].Data)
-			spew.Println(test.want[0].Data)
 			t.Errorf("SetTaskParams(%v) = %v, wanted: ", test.input, output, test.want)
 		}
 	}
@@ -151,10 +149,14 @@ func TestCreateTaskRunnerFromParams(t *testing.T) {
 	test1.N = 25
 	task_params, _ := SetTaskParams(test1)
 	test1_clone := createTestTaskRunner("test1_clone", 1)
-	// TODO: re-name this
+	// TODO: re-name this Function
 	CreateTaskRunnerFromParams(test1_clone, task_params)
 	if !compareTestTaskParams(test1, test1_clone) {
 		t.Errorf("CreateTaskRunnerFromParams failed to clone, %v instead of %v", test1_clone, test1)
 	}
 
 }
+
+// Create Params From Hash
+
+// Create TaskRunner From Hash
