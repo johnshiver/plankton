@@ -11,6 +11,11 @@ import (
 
 type TaskScheduler struct {
 	root_runner task.TaskRunner
+
+	// TODO: if i set params here, would be nice to automatically set those on all
+	//       tasks in the dag
+
+	// TODO: ensure that all tasks in DAG share the same params
 }
 
 func NewTaskScheduler(task_runner task.TaskRunner) (*TaskScheduler, error) {

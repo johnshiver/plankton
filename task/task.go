@@ -12,8 +12,6 @@ type TaskRunner interface {
 	Run()
 	// requires TaskRuner to have an embedded Task
 	GetTask() *Task
-	// TODO: how to determine
-	NewTaskRunnerFromTaskHash() TaskRunner
 }
 
 type Task struct {
@@ -29,10 +27,7 @@ type Task struct {
 
 type TaskParam struct {
 	Name string
-	//Value string
-	Value reflect.Value
-	// consider making this a value from the reflect package
-	// might make it easier to create TaskRunners from this
+	Data reflect.Value
 }
 
 func NewTask(name string, children []TaskRunner, parent TaskRunner) *Task {
@@ -44,10 +39,6 @@ func NewTask(name string, children []TaskRunner, parent TaskRunner) *Task {
 		State:          "waiting",
 		Params:         []*TaskParam{},
 	}
-}
-
-func NewTaskRunnerFromTaskHash(task_hash string) TaskRunner {
-
 }
 
 func hash(s string) uint32 {
@@ -66,20 +57,16 @@ func hash(s string) uint32 {
 func (ts *Task) GetHash() string {
 	param_strings := []string{}
 	for _, parm := range ts.Params {
-		param_strings = append(param_strings, fmt.Sprintf("%s:%s", parm.Name, parm.Value))
+		param_strings = append(param_strings, fmt.Sprintf("%s:%s", parm.Name, parm.Data))
 	}
 	param_string := strings.Join(param_strings, "_")
 	param_hash := hash(param_string)
 	hash_elements := []string{
 		ts.Name,
 		param_string,
-		param_hash,
+		string(param_hash),
 	}
 	return strings.Join(hash_elements, "_")
-}
-
-func GetTaskParamsFromHash(task_hash string) []*TaskParm {
-
 }
 
 // Uses reflection to inspect struct elements for 'task_param' tag
@@ -96,8 +83,8 @@ func SetTaskParams(tr TaskRunner) ([]*TaskParam, error) {
 		_, ok := tag.Lookup(TASK_PARAM_TAG)
 		if ok {
 			new_param := TaskParam{
-				Name:  strings.ToLower(field_info.Name),
-				Value: getField(tr, field_info.Name),
+				Name: field_info.Name,
+				Data: getFieldValue(tr, field_info.Name),
 			}
 			task_params = append(task_params, &new_param)
 		}
@@ -107,11 +94,50 @@ func SetTaskParams(tr TaskRunner) ([]*TaskParam, error) {
 	return tr.GetTask().Params, nil
 }
 
-func getField(tr TaskRunner, field_name string) string {
+func getFieldValue(tr TaskRunner, field_name string) reflect.Value {
 	// TODO: check this works on different types other than int
 	tr_reflect := reflect.ValueOf(tr)
 	field_val := reflect.Indirect(tr_reflect).FieldByName(field_name)
-	return fmt.Sprintf("%v", field_val)
+	return field_val
+
+}
+
+// Given Params and an empty Foo, Returns a new Foo.
+// Note that a Foo is an interface, for this program to
+// work the struct that satifies the Foo interface must be passed to CreateFooFromParams
+// as a pointer.  See this article for a thorough explanation:
+// https://stackoverflow.com/questions/6395076/using-reflect-how-do-you-set-the-value-of-a-struct-field
+// http://speakmy.name/2014/09/14/modifying-interfaced-go-struct/
+func CreateTaskRunnerFromParams(tr TaskRunner, params []*TaskParam) error {
+	stype := reflect.ValueOf(tr).Elem()
+
+	param_name_value_map := map[string]reflect.Value{}
+	for _, param := range params {
+		param_name_value_map[param.Name] = param.Data
+	}
+
+	if stype.Kind() == reflect.Struct {
+		for name, val := range param_name_value_map {
+			f := stype.FieldByName(name)
+			if f.CanSet() {
+				// TODO: support more kinds of fields
+				switch f.Kind() {
+				case reflect.Int:
+					f.SetInt(val.Int())
+				case reflect.String:
+					f.SetString(val.String())
+				default:
+					// TODO: think about what to do in this case
+					return fmt.Errorf("%s not supported as TaskParam yet!", f.Kind())
+				}
+
+			} else {
+				fmt.Printf("Cannot set %s %v\n", name, f)
+			}
+		}
+	}
+
+	return nil
 
 }
 

@@ -21,10 +21,6 @@ func (ht *HiTask) GetTask() *task.Task {
 	return ht.task
 }
 
-func (ht *HiTask) SetTaskParams() {
-	return
-}
-
 func newHiTask(parent *task.Task) *HiTask {
 	task := task.NewTask(
 		"HiTask",

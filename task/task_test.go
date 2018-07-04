@@ -8,8 +8,8 @@ import (
 )
 
 type TestTask struct {
-	n    int `task_param:""`
-	z    int
+	N    int `task_param:""`
+	Z    int
 	task *Task
 }
 
@@ -20,7 +20,14 @@ func (tt *TestTask) GetTask() *Task {
 	return tt.task
 }
 
-func createTestTaskRunner(name string, n int) TaskRunner {
+func compareTestTaskParams(a, b *TestTask) bool {
+	if a.N == b.N {
+		return true
+	}
+	return false
+}
+
+func createTestTaskRunner(name string, n int) *TestTask {
 	task := NewTask(
 		name,
 		[]TaskRunner{},
@@ -28,7 +35,7 @@ func createTestTaskRunner(name string, n int) TaskRunner {
 	)
 	return &TestTask{
 		task: task,
-		n:    n,
+		N:    n,
 	}
 
 }
@@ -81,8 +88,8 @@ func TestSetTaskParams(t *testing.T) {
 	}{
 		{test1, []*TaskParam{
 			&TaskParam{
-				Name:  "n",
-				Value: "1",
+				Name: "N",
+				Data: getFieldValue(test1, "N"),
 			},
 		},
 		},
@@ -90,7 +97,9 @@ func TestSetTaskParams(t *testing.T) {
 
 	for _, test := range tests {
 		if output, _ := SetTaskParams(test.input); !(reflect.DeepEqual(output, test.want)) {
-			t.Errorf("SetTaskParams(%v) = %v", test.input, output)
+			spew.Println(output[0].Data)
+			spew.Println(test.want[0].Data)
+			t.Errorf("SetTaskParams(%v) = %v, wanted: ", test.input, output, test.want)
 		}
 	}
 
@@ -132,6 +141,20 @@ func TestGetHash(t *testing.T) {
 			test_input := spew.Sdump(test.input)
 			t.Errorf("GetHash Failed %s got %v not %v", string(test_input), result, test.want)
 		}
+	}
+
+}
+
+func TestCreateTaskRunnerFromParams(t *testing.T) {
+	test1 := createTestTaskRunner("test1", 1)
+	// modify default value
+	test1.N = 25
+	task_params, _ := SetTaskParams(test1)
+	test1_clone := createTestTaskRunner("test1_clone", 1)
+	// TODO: re-name this
+	CreateTaskRunnerFromParams(test1_clone, task_params)
+	if !compareTestTaskParams(test1, test1_clone) {
+		t.Errorf("CreateTaskRunnerFromParams failed to clone, %v instead of %v", test1_clone, test1)
 	}
 
 }
