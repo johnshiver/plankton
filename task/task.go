@@ -12,6 +12,8 @@ type TaskRunner interface {
 	Run()
 	// requires TaskRuner to have an embedded Task
 	GetTask() *Task
+	// TODO: how to determine
+	NewTaskRunnerFromTaskHash() TaskRunner
 }
 
 type Task struct {
@@ -26,8 +28,11 @@ type Task struct {
 }
 
 type TaskParam struct {
-	Name  string
-	Value string
+	Name string
+	//Value string
+	Value reflect.Value
+	// consider making this a value from the reflect package
+	// might make it easier to create TaskRunners from this
 }
 
 func NewTask(name string, children []TaskRunner, parent TaskRunner) *Task {
@@ -41,6 +46,10 @@ func NewTask(name string, children []TaskRunner, parent TaskRunner) *Task {
 	}
 }
 
+func NewTaskRunnerFromTaskHash(task_hash string) TaskRunner {
+
+}
+
 func hash(s string) uint32 {
 	h := fnv.New32a()
 	h.Write([]byte(s))
@@ -48,19 +57,29 @@ func hash(s string) uint32 {
 
 }
 
-func (ts *Task) AddChild(child TaskRunner) []TaskRunner {
-	ts.Children = append(ts.Children, child)
-	return ts.Children
-}
+// TODO: Consider getting rid of this
+//func (ts *Task) AddChild(child TaskRunner) []TaskRunner {
+//	ts.Children = append(ts.Children, child)
+//	return ts.Children
+//}
 
 func (ts *Task) GetHash() string {
-	params_to_string := []string{}
+	param_strings := []string{}
 	for _, parm := range ts.Params {
-		params_to_string = append(params_to_string, fmt.Sprintf("%s:%s", parm.Name, parm.Value))
+		param_strings = append(param_strings, fmt.Sprintf("%s:%s", parm.Name, parm.Value))
 	}
-	param_string := strings.Join(params_to_string, "_")
+	param_string := strings.Join(param_strings, "_")
 	param_hash := hash(param_string)
-	return fmt.Sprintf("{}_{}_{}", ts.Name, param_string, param_hash)
+	hash_elements := []string{
+		ts.Name,
+		param_string,
+		param_hash,
+	}
+	return strings.Join(hash_elements, "_")
+}
+
+func GetTaskParamsFromHash(task_hash string) []*TaskParm {
+
 }
 
 // Uses reflection to inspect struct elements for 'task_param' tag
@@ -82,7 +101,6 @@ func SetTaskParams(tr TaskRunner) ([]*TaskParam, error) {
 			}
 			task_params = append(task_params, &new_param)
 		}
-
 	}
 
 	tr.GetTask().Params = task_params
@@ -121,7 +139,8 @@ func (ts *Task) SetState(new_state string) (string, error) {
 	return ts.State, nil
 }
 
-func RunTask(tsk_runner TaskRunner, wg *sync.WaitGroup) {
+// Runs a TaskRunner, sets state and notifies waiting group when run is done
+func RunTaskRunner(tsk_runner TaskRunner, wg *sync.WaitGroup) {
 	defer wg.Done()
 	tsk_runner.GetTask().SetState("running")
 	fmt.Printf("Running Task: %s\n", tsk_runner.GetTask().Name)
