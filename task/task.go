@@ -55,13 +55,23 @@ func makeStringHash(s string) uint32 {
 //}
 
 func (ts *Task) GetHash() string {
-	param_strings := []string{}
+	param_string := GetParamsHashString(ts.Params)
+	param_hash := makeStringHash(param_string)
+	hash_elements := []string{
+		ts.Name,
+		param_string,
+		fmt.Sprintf("%v", param_hash),
+	}
+	return strings.Join(hash_elements, "_")
+}
 
-	for _, param := range ts.Params {
-		// TODO: support more kinds of fields
+func GetParamsHashString(params []*TaskParam) string {
+	param_strings := []string{}
+	for _, param := range params {
 		var data_val, data_type string
 
-		// Should support all types in SetParam
+		// TODO: Should support all types in SetParam
+		//       maybe there is a way to combine the logic
 		switch param.Data.Kind() {
 		case reflect.Int:
 			data_val = fmt.Sprintf("%v", param.Data.Int())
@@ -81,15 +91,20 @@ func (ts *Task) GetHash() string {
 		}
 		param_strings = append(param_strings, strings.Join(data_hash_elems, ":"))
 	}
-	param_string := strings.Join(param_strings, "_")
-	param_hash := makeStringHash(param_string)
-	hash_elements := []string{
-		ts.Name,
-		param_string,
-		fmt.Sprintf("%v", param_hash),
-	}
-	return strings.Join(hash_elements, "_")
+	return strings.Join(param_strings, "_")
+
 }
+
+func GetParamsFromHashString(params_hash string) []*TaskParam {
+	hashed_params := strings.Split(params_hash, "_")
+	hashed_params = hashed_params[1 : len(hashed_params)-1]
+	fmt.Println(hashed_params)
+	return []*TaskParam{}
+
+}
+
+// TODO: rename this function or maybe change the API for setting task params
+//       on a TaskRunner
 
 // Uses reflection to inspect struct elements for 'task_param' tag
 // and sets tr.Task.Params accordingly
@@ -130,6 +145,9 @@ func getFieldValue(tr TaskRunner, field_name string) reflect.Value {
 // as a pointer.  See this article for a thorough explanation:
 // https://stackoverflow.com/questions/6395076/using-reflect-how-do-you-set-the-value-of-a-struct-field
 // http://speakmy.name/2014/09/14/modifying-interfaced-go-struct/
+
+// TODO: change name of this Function.  It doesnt really create a task runner so much
+//       as fill in param values on an existing TaskRunner
 func CreateTaskRunnerFromParams(tr TaskRunner, params []*TaskParam) error {
 	stype := reflect.ValueOf(tr).Elem()
 
