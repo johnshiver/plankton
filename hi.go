@@ -6,11 +6,12 @@ import (
 	"github.com/johnshiver/plankton/task"
 )
 
-type HiTask struct {
-	task *task.Task
+type HiTaskRunner struct {
+	interval int `task_param`
+	task     *task.Task
 }
 
-func (ht *HiTask) Run() {
+func (ht *HiTaskRunner) run() {
 	for i := 0; i < 20; i++ {
 		ht.task.Parent.ResultsChannel <- "HI"
 		time.Sleep(1000 * time.Millisecond)
@@ -21,13 +22,13 @@ func (ht *HiTask) GetTask() *task.Task {
 	return ht.task
 }
 
-func newHiTask(parent *task.Task) *HiTask {
+func newHiTaskRunner() *HiTask {
 	task := task.NewTask(
 		"HiTask",
-		[]task.TaskRunner{},
-		parent,
+		[]TaskRunner{},
 	)
 	return &HiTask{
-		task: task,
+		interval: 10,
+		task:     task,
 	}
 }

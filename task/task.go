@@ -6,12 +6,18 @@ import (
 	"reflect"
 	"strings"
 	"sync"
+
+	"github.com/johnshiver/plankton/task"
 )
 
 type TaskRunner interface {
-	Run()
+	// NOTE: should always be called by RunTaskRunner
+	run()
 	// requires TaskRuner to have an embedded Task
 	GetTask() *Task
+
+	// Think about adding this method, could make TaskRunner creation a bit simpler
+	// SetChildren() []*TaskParam
 }
 
 type Task struct {
@@ -30,11 +36,12 @@ type TaskParam struct {
 	Data reflect.Value
 }
 
-func NewTask(name string, children []TaskRunner, parent TaskRunner) *Task {
+func NewTask(name string, children []TaskRunner) *Task {
+	// TODO: might rethink this
 	return &Task{
 		Name:           name,
 		Children:       children,
-		Parent:         parent,
+		Parent:         nil,
 		ResultsChannel: make(chan string),
 		State:          "waiting",
 		Params:         []*TaskParam{},
@@ -139,16 +146,15 @@ func getFieldValue(tr TaskRunner, field_name string) reflect.Value {
 
 }
 
-// Given Params and an empty Foo, Returns a new Foo.
-// Note that a Foo is an interface, for this program to
-// work the struct that satifies the Foo interface must be passed to CreateFooFromParams
-// as a pointer.  See this article for a thorough explanation:
+// Given Params and a TaskRunner, sets all TaskRunner fields marked as param
+// Note: The struct satisfying the TaskRunner interface MUST be passed to this function
+// as a reference.  See these articles for a more thorough explanation:
 // https://stackoverflow.com/questions/6395076/using-reflect-how-do-you-set-the-value-of-a-struct-field
 // http://speakmy.name/2014/09/14/modifying-interfaced-go-struct/
-
-// TODO: change name of this Function.  It doesnt really create a task runner so much
-//       as fill in param values on an existing TaskRunner
 func CreateTaskRunnerFromParams(tr TaskRunner, params []*TaskParam) error {
+
+	// TODO: change name of this Function.  It doesnt really create a task runner so much
+	//       as fill in param values on an existing TaskRunner
 	stype := reflect.ValueOf(tr).Elem()
 
 	param_name_value_map := map[string]reflect.Value{}
@@ -211,7 +217,27 @@ func RunTaskRunner(tsk_runner TaskRunner, wg *sync.WaitGroup) {
 	defer wg.Done()
 	tsk_runner.GetTask().SetState("running")
 	fmt.Printf("Running Task: %s\n", tsk_runner.GetTask().Name)
-	tsk_runner.Run()
+
+	runner_children := tsk_runner.GetTask().Children
+	if len(runner_children) > 0 {
+		for _, child := range runner_children {
+			child.GetTask().Parent = tsk_runner
+		}
+
+		parent_wg := &sync.WaitGroup{}
+		for _, child := range runner_children {
+			parent_wg.Add(1)
+			go task.RunTaskRunner(child, parent_wg)
+		}
+
+		go func() {
+			parent_wg.Wait()
+			close(tsk_runner.GetTask().ResultsChannel)
+
+		}()
+	}
+
+	tsk_runner.run()
 	tsk_runner.GetTask().SetState("complete")
 }
 

@@ -31,7 +31,7 @@ func (ts *TaskScheduler) Start() {
 
 	scheduler_wg := &sync.WaitGroup{}
 	scheduler_wg.Add(1)
-	go task.RunTask(ts.root_runner, scheduler_wg)
+	go task.RunTaskRunner(ts.root_runner, scheduler_wg)
 
 	finished := make(chan struct{})
 

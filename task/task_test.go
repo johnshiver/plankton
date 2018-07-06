@@ -30,8 +30,6 @@ func compareTestTaskParams(a, b *TestTask) bool {
 func createTestTaskRunner(name string, n int) *TestTask {
 	task := NewTask(
 		name,
-		[]TaskRunner{},
-		nil,
 	)
 	return &TestTask{
 		task: task,
