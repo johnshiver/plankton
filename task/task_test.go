@@ -13,7 +13,7 @@ type TestTask struct {
 	task *Task
 }
 
-func (tt *TestTask) Run() {
+func (tt *TestTask) run() {
 	return
 }
 func (tt *TestTask) GetTask() *Task {
@@ -30,6 +30,7 @@ func compareTestTaskParams(a, b *TestTask) bool {
 func createTestTaskRunner(name string, n int) *TestTask {
 	task := NewTask(
 		name,
+		[]TaskRunner{},
 	)
 	return &TestTask{
 		task: task,

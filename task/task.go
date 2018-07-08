@@ -6,8 +6,6 @@ import (
 	"reflect"
 	"strings"
 	"sync"
-
-	"github.com/johnshiver/plankton/task"
 )
 
 type TaskRunner interface {
@@ -227,7 +225,7 @@ func RunTaskRunner(tsk_runner TaskRunner, wg *sync.WaitGroup) {
 		parent_wg := &sync.WaitGroup{}
 		for _, child := range runner_children {
 			parent_wg.Add(1)
-			go task.RunTaskRunner(child, parent_wg)
+			go RunTaskRunner(child, parent_wg)
 		}
 
 		go func() {
