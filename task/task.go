@@ -10,7 +10,7 @@ import (
 
 type TaskRunner interface {
 	// NOTE: should always be called by RunTaskRunner
-	run()
+	Run()
 	// requires TaskRuner to have an embedded Task
 	GetTask() *Task
 
@@ -235,7 +235,7 @@ func RunTaskRunner(tsk_runner TaskRunner, wg *sync.WaitGroup) {
 		}()
 	}
 
-	tsk_runner.run()
+	tsk_runner.Run()
 	tsk_runner.GetTask().SetState("complete")
 }
 

@@ -11,13 +11,13 @@ type HiLoAggregatorTask struct {
 }
 
 func NewHiLoTask(parent *task.Task) *HiLoAggregatorTask {
-	hiTaskRunner := newHiTaskRunner()
-	loTaskRunner := newLowTaskRunner()
+	hiTaskRunner := NewHiTaskRunner()
+	loTaskRunner := NewLowTaskRunner()
 	task := task.NewTask(
 		"HiLoAggregatorTask",
-		[]TaskRunner{
+		[]task.TaskRunner{
 			hiTaskRunner,
-			lowTaskRunner,
+			loTaskRunner,
 		},
 	)
 	return &HiLoAggregatorTask{
@@ -30,7 +30,7 @@ func (hl *HiLoAggregatorTask) GetTask() *task.Task {
 	return hl.task
 }
 
-func (hl *HiLoAggregatorTask) run() {
+func (hl *HiLoAggregatorTask) Run() {
 
 	for result := range hl.task.ResultsChannel {
 		fmt.Println(result)

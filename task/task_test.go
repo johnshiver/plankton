@@ -13,7 +13,7 @@ type TestTask struct {
 	task *Task
 }
 
-func (tt *TestTask) run() {
+func (tt *TestTask) Run() {
 	return
 }
 func (tt *TestTask) GetTask() *Task {

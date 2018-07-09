@@ -11,9 +11,9 @@ type LowTaskRunner struct {
 	task    *task.Task
 }
 
-func (lt *LowTaskRunner) run() {
+func (lt *LowTaskRunner) Run() {
 	for i := 0; i < 2; i++ {
-		lt.task.Parent.ResultsChannel <- lt.payload
+		lt.GetTask().Parent.GetTask().ResultsChannel <- lt.payload
 		time.Sleep(200 * time.Millisecond)
 	}
 }
@@ -27,7 +27,7 @@ func NewLowTaskRunner() *LowTaskRunner {
 		"LoTask",
 		[]task.TaskRunner{},
 	)
-	return &LoTaskRunner{
+	return &LowTaskRunner{
 		payload: "LO",
 		task:    task,
 	}

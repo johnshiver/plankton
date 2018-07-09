@@ -11,23 +11,23 @@ type HiTaskRunner struct {
 	task     *task.Task
 }
 
-func (ht *HiTaskRunner) run() {
+func (ht *HiTaskRunner) Run() {
 	for i := 0; i < 20; i++ {
-		ht.task.Parent.ResultsChannel <- "HI"
+		ht.GetTask().Parent.GetTask().ResultsChannel <- "HI"
 		time.Sleep(1000 * time.Millisecond)
 	}
 }
 
-func (ht *HiTask) GetTask() *task.Task {
+func (ht *HiTaskRunner) GetTask() *task.Task {
 	return ht.task
 }
 
-func newHiTaskRunner() *HiTask {
+func NewHiTaskRunner() *HiTaskRunner {
 	task := task.NewTask(
 		"HiTask",
-		[]TaskRunner{},
+		[]task.TaskRunner{},
 	)
-	return &HiTask{
+	return &HiTaskRunner{
 		interval: 10,
 		task:     task,
 	}
