@@ -7,12 +7,13 @@ import (
 )
 
 type LowTaskRunner struct {
-	payload string `task_param`
-	task    *task.Task
+	payload  string `task_param:""`
+	interval int    `task_param:""`
+	task     *task.Task
 }
 
 func (lt *LowTaskRunner) Run() {
-	for i := 0; i < 2; i++ {
+	for i := 0; i < lt.interval; i++ {
 		lt.GetTask().Parent.GetTask().ResultsChannel <- lt.payload
 		time.Sleep(200 * time.Millisecond)
 	}
@@ -25,10 +26,10 @@ func (lt *LowTaskRunner) GetTask() *task.Task {
 func NewLowTaskRunner() *LowTaskRunner {
 	task := task.NewTask(
 		"LoTask",
-		[]task.TaskRunner{},
 	)
 	return &LowTaskRunner{
-		payload: "LO",
-		task:    task,
+		payload:  "LO",
+		interval: 20,
+		task:     task,
 	}
 }

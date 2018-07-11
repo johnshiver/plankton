@@ -34,11 +34,11 @@ type TaskParam struct {
 	Data reflect.Value
 }
 
-func NewTask(name string, children []TaskRunner) *Task {
+func NewTask(name string) *Task {
 	// TODO: might rethink this
 	return &Task{
 		Name:           name,
-		Children:       children,
+		Children:       nil,
 		Parent:         nil,
 		ResultsChannel: make(chan string),
 		State:          "waiting",
@@ -185,6 +185,16 @@ func CreateTaskRunnerFromParams(tr TaskRunner, params []*TaskParam) error {
 
 }
 
+func (ts *Task) AddChildren(children ...TaskRunner) []TaskRunner {
+	new_task_children := []TaskRunner{}
+	for _, child := range children {
+		new_task_children = append(new_task_children, child)
+	}
+
+	ts.Children = new_task_children
+	return ts.Children
+}
+
 func (ts *Task) SetState(new_state string) (string, error) {
 	valid_states := []string{
 		"waiting",
@@ -254,6 +264,7 @@ func VerifyDAG(root_task *Task) bool {
 		curr := task_queue[0]
 		task_queue = task_queue[1:]
 
+		fmt.Println(curr.GetHash())
 		_, ok := task_set[curr.GetHash()]
 		if ok {
 			return false

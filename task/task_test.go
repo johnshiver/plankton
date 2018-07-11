@@ -7,6 +7,7 @@ import (
 	"github.com/davecgh/go-spew/spew"
 )
 
+// TODO: make task param flag nicer
 type TestTask struct {
 	N    int `task_param:""`
 	Z    int
@@ -30,7 +31,6 @@ func compareTestTaskParams(a, b *TestTask) bool {
 func createTestTaskRunner(name string, n int) *TestTask {
 	task := NewTask(
 		name,
-		[]TaskRunner{},
 	)
 	return &TestTask{
 		task: task,

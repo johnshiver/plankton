@@ -25,7 +25,6 @@ func (ht *HiTaskRunner) GetTask() *task.Task {
 func NewHiTaskRunner() *HiTaskRunner {
 	task := task.NewTask(
 		"HiTask",
-		[]task.TaskRunner{},
 	)
 	return &HiTaskRunner{
 		interval: 10,

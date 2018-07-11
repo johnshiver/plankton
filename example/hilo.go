@@ -10,15 +10,9 @@ type HiLoAggregatorTask struct {
 	task *task.Task
 }
 
-func NewHiLoTask(parent *task.Task) *HiLoAggregatorTask {
-	hiTaskRunner := NewHiTaskRunner()
-	loTaskRunner := NewLowTaskRunner()
+func NewHiLoTask() *HiLoAggregatorTask {
 	task := task.NewTask(
 		"HiLoAggregatorTask",
-		[]task.TaskRunner{
-			hiTaskRunner,
-			loTaskRunner,
-		},
 	)
 	return &HiLoAggregatorTask{
 		task: task,

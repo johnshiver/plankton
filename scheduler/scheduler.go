@@ -19,6 +19,21 @@ type TaskScheduler struct {
 }
 
 func NewTaskScheduler(task_runner task.TaskRunner) (*TaskScheduler, error) {
+
+	task_queue := []task.TaskRunner{}
+	task_queue = append(task_queue, task_runner)
+	for len(task_queue) > 0 {
+		curr := task_queue[0]
+		task_queue = task_queue[1:]
+
+		task.SetTaskParams(curr)
+
+		for _, child := range curr.GetTask().Children {
+			task_queue = append(task_queue, child)
+		}
+
+	}
+
 	dag_is_good := task.VerifyDAG(task_runner.GetTask())
 	if !dag_is_good {
 		return nil, fmt.Errorf("Root task runner isnt a valid Task DAG\n")
