@@ -9,18 +9,14 @@ import (
 )
 
 type TaskRunner interface {
-	// NOTE: should always be called by RunTaskRunner
+	// NOTE: Run() should always be called by RunTaskRunner
 	Run()
 	// requires TaskRuner to have an embedded Task
 	GetTask() *Task
-
-	// Think about adding this method, could make TaskRunner creation a bit simpler
-	// SetChildren() []*TaskParam
 }
 
+// TODO: add docs
 type Task struct {
-	// TODO: does children need to be TaskRunner or can I get away with making everything
-	//       a task
 	Name           string
 	Children       []TaskRunner
 	Parent         TaskRunner
@@ -35,7 +31,8 @@ type TaskParam struct {
 }
 
 func NewTask(name string) *Task {
-	// TODO: might rethink this
+	// TODO: make it possible to accept buffer size on results channel
+	//       some tasks may want a buffer, others may not
 	return &Task{
 		Name:           name,
 		Children:       nil,

@@ -15,7 +15,7 @@ type LowTaskRunner struct {
 func (lt *LowTaskRunner) Run() {
 	for i := 0; i < lt.interval; i++ {
 		lt.GetTask().Parent.GetTask().ResultsChannel <- lt.payload
-		time.Sleep(200 * time.Millisecond)
+		time.Sleep(1000 * time.Millisecond)
 	}
 }
 
