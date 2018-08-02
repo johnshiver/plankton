@@ -6,6 +6,7 @@ import (
 	"reflect"
 	"strings"
 	"sync"
+	"time"
 )
 
 type TaskRunner interface {
@@ -13,6 +14,7 @@ type TaskRunner interface {
 	Run()
 	// requires TaskRuner to have an embedded Task
 	GetTask() *Task
+	// GetCompletionPercent() int
 }
 
 // TODO: add docs
@@ -23,6 +25,8 @@ type Task struct {
 	ResultsChannel chan string
 	State          string
 	Params         []*TaskParam
+	Start          time.Time
+	End            time.Time
 }
 
 type TaskParam struct {
@@ -33,11 +37,12 @@ type TaskParam struct {
 func NewTask(name string) *Task {
 	// TODO: make it possible to accept buffer size on results channel
 	//       some tasks may want a buffer, others may not
+
 	return &Task{
 		Name:           name,
 		Children:       nil,
 		Parent:         nil,
-		ResultsChannel: make(chan string),
+		ResultsChannel: make(chan string, 1000),
 		State:          "waiting",
 		Params:         []*TaskParam{},
 	}
@@ -238,12 +243,12 @@ func RunTaskRunner(tsk_runner TaskRunner, wg *sync.WaitGroup) {
 		go func() {
 			parent_wg.Wait()
 			close(tsk_runner.GetTask().ResultsChannel)
-
 		}()
 	}
-
+	tsk_runner.GetTask().Start = time.Now()
 	tsk_runner.Run()
 	tsk_runner.GetTask().SetState("complete")
+	tsk_runner.GetTask().End = time.Now()
 }
 
 // TODO: do a better job detecting the D part
