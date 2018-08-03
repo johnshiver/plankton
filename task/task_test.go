@@ -9,16 +9,16 @@ import (
 
 // TODO: make task param flag nicer
 type TestTask struct {
-	N    int `task_param:""`
-	Z    int
-	task *Task
+	*Task
+	N int `task_param:""`
+	Z int
 }
 
 func (tt *TestTask) Run() {
 	return
 }
 func (tt *TestTask) GetTask() *Task {
-	return tt.task
+	return tt.Task
 }
 
 func compareTestTaskParams(a, b *TestTask) bool {
@@ -29,12 +29,10 @@ func compareTestTaskParams(a, b *TestTask) bool {
 }
 
 func createTestTaskRunner(name string, n int) *TestTask {
-	task := NewTask(
-		name,
-	)
 	return &TestTask{
-		task: task,
-		N:    n,
+		NewTask(name),
+		n,
+		0,
 	}
 
 }
