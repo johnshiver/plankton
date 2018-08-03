@@ -15,6 +15,7 @@ type Producer struct {
 func (p *Producer) Run() {
 	for i := 0; i < p.interval; i++ {
 		p.Parent.GetTask().ResultsChannel <- p.payload
+		p.DataProcessed += 1
 		time.Sleep(1000 * time.Millisecond)
 	}
 }

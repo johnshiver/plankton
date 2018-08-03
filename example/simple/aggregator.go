@@ -1,8 +1,6 @@
 package main
 
 import (
-	"fmt"
-
 	"github.com/johnshiver/plankton/task"
 )
 
@@ -22,8 +20,10 @@ func (a *Aggregator) GetTask() *task.Task {
 
 func (a *Aggregator) Run() {
 
+	results := []string{}
 	for result := range a.ResultsChannel {
-		fmt.Println(result)
+		results = append(results, result)
+		a.DataProcessed += 1
 	}
 
 }

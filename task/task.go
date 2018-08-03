@@ -14,7 +14,6 @@ type TaskRunner interface {
 	Run()
 	// requires TaskRuner to have an embedded Task
 	GetTask() *Task
-	// GetCompletionPercent() int
 }
 
 // TODO: add docs
@@ -27,6 +26,7 @@ type Task struct {
 	Params         []*TaskParam
 	Start          time.Time
 	End            time.Time
+	DataProcessed  int
 }
 
 type TaskParam struct {
@@ -45,6 +45,7 @@ func NewTask(name string) *Task {
 		ResultsChannel: make(chan string, 1000),
 		State:          "waiting",
 		Params:         []*TaskParam{},
+		DataProcessed:  0,
 	}
 }
 
@@ -55,12 +56,7 @@ func makeStringHash(s string) uint32 {
 
 }
 
-// TODO: Consider getting rid of this
-//func (ts *Task) AddChild(child TaskRunner) []TaskRunner {
-//	ts.Children = append(ts.Children, child)
-//	return ts.Children
-//}
-
+// TODO: consider getting rid of the string hash at the end, its not really used
 func (ts *Task) GetHash() string {
 	param_string := GetParamsHashString(ts.Params)
 	param_hash := makeStringHash(param_string)

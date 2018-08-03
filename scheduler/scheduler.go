@@ -53,7 +53,7 @@ func (ts *TaskScheduler) PrintDAGState() {
 	fmt.Print("\033[H\033[2J")
 
 	fmt.Println(strings.Repeat("-", 45))
-	fmt.Println("Current DAG State")
+	fmt.Println("Current Task DAG Status")
 	fmt.Println(strings.Repeat("-", 45))
 	fmt.Println(ts.getDAGState())
 	fmt.Println(strings.Repeat("-", 45))
@@ -114,11 +114,16 @@ func (ts *TaskScheduler) getDAGState() string {
 		} else {
 			running_time = time.Now().Sub(curr.Start)
 		}
+
 		curr_state := fmt.Sprintf("\t %s", curr.State)
 		curr_run_time := fmt.Sprintf("\t %s", running_time)
+		curr_data_processed := fmt.Sprintf("\t data processed so far: %d", curr.DataProcessed)
 		dag_state_strings = append(dag_state_strings, curr.GetHash())
 		dag_state_strings = append(dag_state_strings, curr_state)
 		dag_state_strings = append(dag_state_strings, curr_run_time)
+		if curr.DataProcessed > 0 {
+			dag_state_strings = append(dag_state_strings, curr_data_processed)
+		}
 
 		for _, child := range curr.Children {
 			task_queue = append(task_queue, child.GetTask())
