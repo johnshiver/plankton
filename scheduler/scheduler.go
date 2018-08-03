@@ -76,7 +76,7 @@ func (ts *TaskScheduler) Start() {
 	// hook into every task that is made, then access from
 	// the schduler to get results
 
-	ticker := time.NewTicker(time.Second * 5)
+	ticker := time.NewTicker(time.Millisecond * 200)
 	done := false
 	for !done {
 		select {
@@ -114,9 +114,11 @@ func (ts *TaskScheduler) getDAGState() string {
 		} else {
 			running_time = time.Now().Sub(curr.Start)
 		}
-		curr_state_string := fmt.Sprintf("Task %s: %s run time %s", curr.Name, curr.State, running_time)
-
-		dag_state_strings = append(dag_state_strings, curr_state_string)
+		curr_state := fmt.Sprintf("\t %s", curr.State)
+		curr_run_time := fmt.Sprintf("\t %s", running_time)
+		dag_state_strings = append(dag_state_strings, curr.GetHash())
+		dag_state_strings = append(dag_state_strings, curr_state)
+		dag_state_strings = append(dag_state_strings, curr_run_time)
 
 		for _, child := range curr.Children {
 			task_queue = append(task_queue, child.GetTask())
