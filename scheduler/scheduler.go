@@ -16,6 +16,7 @@ import (
 type TaskScheduler struct {
 	root_runner task.TaskRunner
 	uuid        *uuid.UUID
+	record_run  bool
 
 	// TODO: if i set params here, would be nice to automatically set those on all
 	//       tasks in the dag
@@ -23,7 +24,7 @@ type TaskScheduler struct {
 	// TODO: ensure that all tasks in DAG share the same params
 }
 
-func NewTaskScheduler(task_runner task.TaskRunner) (*TaskScheduler, error) {
+func NewTaskScheduler(task_runner task.TaskRunner, record_run bool) (*TaskScheduler, error) {
 
 	// set task params
 	task_queue := []task.TaskRunner{}
@@ -45,7 +46,7 @@ func NewTaskScheduler(task_runner task.TaskRunner) (*TaskScheduler, error) {
 	if err != nil {
 		panic("Failed to create uuid for scheduler")
 	}
-	return &TaskScheduler{root_runner: task_runner, uuid: schedueler_uuid}, nil
+	return &TaskScheduler{root_runner: task_runner, uuid: schedueler_uuid, record_run: record_run}, nil
 }
 func (ts *TaskScheduler) PrintDAGState() {
 	// clears the terminal. might not to add functionality to support other systems
@@ -88,7 +89,9 @@ func (ts *TaskScheduler) Start() {
 		}
 	}
 	ts.PrintDAGState()
-	// ts.recordDAGRun()
+	if ts.record_run {
+		ts.recordDAGRun()
+	}
 	return
 
 }
@@ -140,10 +143,9 @@ func ReRunTask(root_task task.Task, scheduler_uuid string) {
 
 type PlanktonRecord struct {
 	gorm.Model
-	TaskName      string
 	TaskHash      string
-	SchedulerUUID *uuid.UUID
-	ExecutionTime time.Time
+	SchedulerUUID string
+	ExecutionTime float64
 }
 
 func (ts *TaskScheduler) recordDAGRun() {
@@ -166,13 +168,14 @@ func (ts *TaskScheduler) recordDAGRun() {
 	for len(task_queue) > 0 {
 		curr := task_queue[0]
 		task_queue = task_queue[1:]
+		execution_time := curr.End.Sub(curr.Start)
 
 		new_plankton_record := PlanktonRecord{
-			TaskName:      curr.Name,
 			TaskHash:      curr.GetHash(),
-			SchedulerUUID: ts.uuid,
+			SchedulerUUID: ts.uuid.String(),
+			ExecutionTime: execution_time.Seconds(),
 		}
-		db.Create(new_plankton_record)
+		db.Create(&new_plankton_record)
 		for _, child := range curr.Children {
 			task_queue = append(task_queue, child.GetTask())
 		}

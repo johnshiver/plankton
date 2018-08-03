@@ -12,15 +12,14 @@ import (
 )
 
 type PostgresLoader struct {
-	table_name string `task_param:""`
-	task       *task.Task
+	*task.Task
 }
 
 type Rating struct {
 	gorm.Model
-	user_id  int
-	movie_id int
-	rating   float64
+	UserId  int
+	MovieId int
+	Rating  float64
 }
 
 func (pl *PostgresLoader) Run() {
@@ -39,6 +38,7 @@ func (pl *PostgresLoader) Run() {
 		var new_line []string
 
 		err := json.Unmarshal(results, &new_line)
+
 		if err != nil {
 			log.Panic(err)
 		}
@@ -47,26 +47,25 @@ func (pl *PostgresLoader) Run() {
 		movie_id, _ := strconv.Atoi(new_line[1])
 		rating, _ := strconv.ParseFloat(new_line[2], 64)
 
-		db.Create(&Rating{
-			user_id:  user_id,
-			movie_id: movie_id,
-			rating:   rating,
-		})
+		new_rating := &Rating{
+			UserId:  user_id,
+			MovieId: movie_id,
+			Rating:  rating,
+		}
+
+		db.Create(new_rating)
+		pl.DataProcessed += 1
 
 	}
 
 }
 
 func (pl *PostgresLoader) GetTask() *task.Task {
-	return pl.task
+	return pl.Task
 }
 
-func NewPostgresLoader(table_name string) *PostgresLoader {
-	task := task.NewTask(
-		"PostgresLoader",
-	)
+func NewPostgresLoader() *PostgresLoader {
 	return &PostgresLoader{
-		table_name: table_name,
-		task:       task,
+		task.NewTask("PostgresLoader"),
 	}
 }

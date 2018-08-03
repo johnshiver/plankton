@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/csv"
 	"encoding/json"
+	"fmt"
 	"io"
 	"log"
 	"os"
@@ -10,12 +11,12 @@ import (
 	"github.com/johnshiver/plankton/task"
 )
 
-type CSVTaskRunner struct {
+type CSVExtractor struct {
+	*task.Task
 	csv_file string `task_param:""`
-	task     *task.Task
 }
 
-func (cv *CSVTaskRunner) Run() {
+func (cv *CSVExtractor) Run() {
 
 	f, err := os.Open(cv.csv_file)
 	if err != nil {
@@ -23,6 +24,9 @@ func (cv *CSVTaskRunner) Run() {
 	}
 	defer f.Close()
 
+	stats, _ := f.Stat()
+
+	fmt.Println(stats.Size)
 	reader := csv.NewReader(f)
 
 	for {
@@ -31,28 +35,23 @@ func (cv *CSVTaskRunner) Run() {
 			break
 		}
 		if err != nil {
-			//			log.Fatal(err)
-			log.Println(err)
+			log.Fatal(err)
 		}
 
 		lines, _ := json.Marshal(record)
-
-		//lines := strings.Join(record, "   ")
-		cv.GetTask().Parent.GetTask().ResultsChannel <- string(lines)
+		cv.Parent.GetTask().ResultsChannel <- string(lines)
+		cv.DataProcessed += 1
 	}
 
 }
 
-func (cv *CSVTaskRunner) GetTask() *task.Task {
-	return cv.task
+func (cv *CSVExtractor) GetTask() *task.Task {
+	return cv.Task
 }
 
-func NewCSVRunner(csv_file string) *CSVTaskRunner {
-	task := task.NewTask(
-		"CSVExtractor",
-	)
-	return &CSVTaskRunner{
-		csv_file: csv_file,
-		task:     task,
+func NewCSVExtractor(csv_file string) *CSVExtractor {
+	return &CSVExtractor{
+		task.NewTask("CSVExtractor"),
+		csv_file,
 	}
 }

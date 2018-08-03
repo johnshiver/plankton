@@ -42,7 +42,7 @@ func NewTask(name string) *Task {
 		Name:           name,
 		Children:       nil,
 		Parent:         nil,
-		ResultsChannel: make(chan string, 1000),
+		ResultsChannel: make(chan string, 10000),
 		State:          "waiting",
 		Params:         []*TaskParam{},
 		DataProcessed:  0,
@@ -262,7 +262,6 @@ func VerifyDAG(root_task *Task) bool {
 		curr := task_queue[0]
 		task_queue = task_queue[1:]
 
-		fmt.Println(curr.GetHash())
 		_, ok := task_set[curr.GetHash()]
 		if ok {
 			return false
