@@ -121,7 +121,9 @@ func (ts *TaskScheduler) getDAGState() string {
 		curr_state := fmt.Sprintf("\t %s", curr.State)
 		curr_run_time := fmt.Sprintf("\t %s", running_time)
 		curr_data_processed := fmt.Sprintf("\t data processed so far: %d", curr.DataProcessed)
-		dag_state_strings = append(dag_state_strings, curr.GetHash())
+		curr_hash := curr.GetHash()
+		curr_hash = strings.TrimRight(curr_hash, "_")
+		dag_state_strings = append(dag_state_strings, curr_hash)
 		dag_state_strings = append(dag_state_strings, curr_state)
 		dag_state_strings = append(dag_state_strings, curr_run_time)
 		if curr.DataProcessed > 0 {
@@ -141,6 +143,7 @@ func ReRunTask(root_task task.Task, scheduler_uuid string) {
 
 }
 
+// TODO: replace this with beego or standard library
 type PlanktonRecord struct {
 	gorm.Model
 	TaskHash      string
@@ -151,7 +154,7 @@ type PlanktonRecord struct {
 func (ts *TaskScheduler) recordDAGRun() {
 	// Some considerations: i have chosen for now to record the entire run after its completion
 	// it may make sense for each task to individually record its state as it finishes
-	// might make it clearner when errors occur / etc.  will revisit this once things are working a bit better
+	// might make it cleaner when errors occur / etc.  will revisit this once things are working a bit better
 
 	// TODO: use a config for this stuff
 	// TODO: consider using another database ORM or just pure sql, for now i want to get this working

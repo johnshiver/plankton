@@ -59,11 +59,9 @@ func makeStringHash(s string) uint32 {
 // TODO: consider getting rid of the string hash at the end, its not really used
 func (ts *Task) GetHash() string {
 	param_string := GetParamsHashString(ts.Params)
-	param_hash := makeStringHash(param_string)
 	hash_elements := []string{
 		ts.Name,
 		param_string,
-		fmt.Sprintf("%v", param_hash),
 	}
 	return strings.Join(hash_elements, "_")
 }
@@ -89,8 +87,8 @@ func GetParamsHashString(params []*TaskParam) string {
 
 		data_hash_elems := []string{
 			param.Name,
-			data_val,
 			data_type,
+			data_val,
 		}
 		param_strings = append(param_strings, strings.Join(data_hash_elems, ":"))
 	}
