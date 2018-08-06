@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"hash/fnv"
 	"reflect"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -98,16 +99,37 @@ func (ts *Task) GetSerializedParams() string {
 
 }
 
-func GetParamsFromHashString(params_hash string) []*TaskParam {
-	hashed_params := strings.Split(params_hash, "_")
-	hashed_params = hashed_params[1 : len(hashed_params)-1]
-	fmt.Println(hashed_params)
-	return []*TaskParam{}
+func DeserializeTaskParams(serialized_pr string) ([]*TaskParam, error) {
+	deserialized_task_params := []*TaskParam{}
+	hashed_params := strings.Split(serialized_pr, "_")
+	for _, param := range hashed_params {
+		split_vals := strings.Split(param, ":")
+		name, d_type, d_val := split_vals[0], split_vals[1], split_vals[2]
+		var final_val reflect.Value
+
+		switch d_type {
+		case "INT":
+			final_int, err := strconv.Atoi(d_val)
+			if err != nil {
+				fmt.Errorf("Error creating int from serialized Task Param!")
+				return nil, err
+			}
+			final_val = reflect.ValueOf(final_int)
+			// final_val.SetInt(final_int)
+		case "STR":
+			final_val = reflect.ValueOf(d_val)
+		}
+
+		new_param := &TaskParam{
+			Name: name,
+			Data: final_val,
+		}
+		deserialized_task_params = append(deserialized_task_params, new_param)
+
+	}
+	return deserialized_task_params, nil
 
 }
-
-// TODO: rename this function or maybe change the API for setting task params
-//       on a TaskRunner
 
 // Uses reflection to inspect struct elements for 'task_param' tag
 // and sets tr.Task.Params accordingly
@@ -151,6 +173,8 @@ func CreateTaskRunnerFromParams(tr TaskRunner, params []*TaskParam) error {
 
 	// TODO: change name of this Function.  It doesnt really create a task runner so much
 	//       as fill in param values on an existing TaskRunner
+
+	// TODO: make this var name consistent with the one used above
 	stype := reflect.ValueOf(tr).Elem()
 
 	param_name_value_map := map[string]reflect.Value{}

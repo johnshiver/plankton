@@ -200,6 +200,15 @@ func TestCreateTaskRunnerFromParams(t *testing.T) {
 
 }
 
-// Create Params From Hash
+func TestCreateParamFromSerializedParam(t *testing.T) {
+	serialized_task_param1 := "Foop:INT:5"
+	task_params, _ := DeserializeTaskParams(serialized_task_param1)
+	new_task_param := task_params[0]
+	spew.Dump(new_task_param)
+	if new_task_param.Name != "Foop" {
+		t.Errorf("Failed to set correct name on TaskParam %s", "Foop")
+	}
+
+}
 
 // Create TaskRunner From Hash
