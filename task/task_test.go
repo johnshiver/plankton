@@ -121,7 +121,7 @@ func TestGetSerializedParams(t *testing.T) {
 	}{
 		{[]TaskRunner{test1, test2}, true},
 		{[]TaskRunner{test3, test4}, false},
-		{[]TaskRunner{test5, test6}, false},
+		{[]TaskRunner{test5, test6}, true},
 		{[]TaskRunner{test7, test8}, false},
 	}
 	for _, test := range tests {
