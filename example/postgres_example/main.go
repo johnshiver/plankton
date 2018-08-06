@@ -11,7 +11,7 @@ func main() {
 	ratings_pg_loader := NewPostgresLoader()
 	ratings_pg_loader.AddChildren(ratings_csv_loader)
 
-	my_scheduler, err := scheduler.NewTaskScheduler(ratings_pg_loader)
+	my_scheduler, err := scheduler.NewTaskScheduler(ratings_pg_loader, true)
 	if err != nil {
 		log.Panic(err)
 	}

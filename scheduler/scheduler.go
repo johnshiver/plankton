@@ -121,7 +121,7 @@ func (ts *TaskScheduler) getDAGState() string {
 		curr_state := fmt.Sprintf("\t %s", curr.State)
 		curr_run_time := fmt.Sprintf("\t %s", running_time)
 		curr_data_processed := fmt.Sprintf("\t data processed so far: %d", curr.DataProcessed)
-		curr_hash := curr.GetHash()
+		curr_hash := curr.GetSerializedParams()
 		curr_hash = strings.TrimRight(curr_hash, "_")
 		dag_state_strings = append(dag_state_strings, curr_hash)
 		dag_state_strings = append(dag_state_strings, curr_state)
@@ -146,7 +146,11 @@ func ReRunTask(root_task task.Task, scheduler_uuid string) {
 // TODO: replace this with beego or standard library
 type PlanktonRecord struct {
 	gorm.Model
+	TaskName      string
+	TaskParams    string // should be nullable
 	TaskHash      string
+	ParentHash    string // should be nullable
+	ChildHashes   string // should be nullable
 	SchedulerUUID string
 	ExecutionTime float64
 }
@@ -173,8 +177,25 @@ func (ts *TaskScheduler) recordDAGRun() {
 		task_queue = task_queue[1:]
 		execution_time := curr.End.Sub(curr.Start)
 
+		var parent_hash string
+		if curr.Parent != nil {
+			parent_hash = curr.Parent.GetTask().GetHash()
+		}
+
+		var child_hash string
+		if len(curr.Children) > 0 {
+			child_hashes := []string{}
+			for _, child := range curr.Children {
+				child_hashes = append(child_hashes, child.GetTask().GetHash())
+			}
+			child_hash = strings.Join(child_hashes, ",")
+		}
 		new_plankton_record := PlanktonRecord{
+			TaskName:      curr.Name,
+			TaskParams:    curr.GetSerializedParams(),
 			TaskHash:      curr.GetHash(),
+			ParentHash:    parent_hash,
+			ChildHashes:   child_hash,
 			SchedulerUUID: ts.uuid.String(),
 			ExecutionTime: execution_time.Seconds(),
 		}

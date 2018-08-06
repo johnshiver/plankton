@@ -40,7 +40,7 @@ func NewTask(name string) *Task {
 
 	return &Task{
 		Name:           name,
-		Children:       nil,
+		Children:       []TaskRunner{},
 		Parent:         nil,
 		ResultsChannel: make(chan string, 10000),
 		State:          "waiting",
@@ -56,19 +56,21 @@ func makeStringHash(s string) uint32 {
 
 }
 
-// TODO: consider getting rid of the string hash at the end, its not really used
 func (ts *Task) GetHash() string {
-	param_string := GetParamsHashString(ts.Params)
-	hash_elements := []string{
-		ts.Name,
-		param_string,
+	strings_to_hash := []string{}
+	strings_to_hash = append(strings_to_hash, ts.Name)
+	strings_to_hash = append(strings_to_hash, ts.GetSerializedParams())
+	for _, child := range ts.Children {
+		strings_to_hash = append(strings_to_hash, child.GetTask().GetSerializedParams())
 	}
-	return strings.Join(hash_elements, "_")
+	string_to_hash := strings.Join(strings_to_hash, "")
+	return fmt.Sprintf("%v", (makeStringHash(string_to_hash)))
 }
 
-func GetParamsHashString(params []*TaskParam) string {
+func (ts *Task) GetSerializedParams() string {
+
 	param_strings := []string{}
-	for _, param := range params {
+	for _, param := range ts.Params {
 		var data_val, data_type string
 
 		// TODO: Should support all types in SetParam
@@ -246,10 +248,6 @@ func RunTaskRunner(tsk_runner TaskRunner, wg *sync.WaitGroup) {
 }
 
 // TODO: do a better job detecting the D part
-
-// TODO: we also need some way of creating a map of tasks
-//       to check acyclical property
-//       Going to implement task_has on Task
 func VerifyDAG(root_task *Task) bool {
 
 	task_set := make(map[string]struct{})

@@ -29,11 +29,13 @@ func compareTestTaskParams(a, b *TestTask) bool {
 }
 
 func createTestTaskRunner(name string, n int) *TestTask {
-	return &TestTask{
+	new_runner := TestTask{
 		NewTask(name),
 		n,
 		0,
 	}
+	SetTaskParams(&new_runner)
+	return &new_runner
 
 }
 
@@ -100,7 +102,7 @@ func TestSetTaskParams(t *testing.T) {
 
 }
 
-func TestGetHash(t *testing.T) {
+func TestGetSerializedParams(t *testing.T) {
 	test1 := createTestTaskRunner("test1", 1)
 	test2 := createTestTaskRunner("test1", 1)
 
@@ -126,7 +128,7 @@ func TestGetHash(t *testing.T) {
 		task_hashes := []string{}
 		for _, runner := range test.input {
 			SetTaskParams(runner)
-			task_hashes = append(task_hashes, runner.GetTask().GetHash())
+			task_hashes = append(task_hashes, runner.GetTask().GetSerializedParams())
 		}
 
 		first_hash, second_hash := task_hashes[0], task_hashes[1]
@@ -134,7 +136,51 @@ func TestGetHash(t *testing.T) {
 
 		if result != test.want {
 			test_input := spew.Sdump(test.input)
-			t.Errorf("GetHash Failed %s got %v not %v", string(test_input), result, test.want)
+			t.Errorf("GetSerializedParams Failed %s got %v not %v", string(test_input), result, test.want)
+		}
+	}
+
+}
+
+// Tests that task runners with identical params + name but different children produce different hashes
+func TestGetHash(t *testing.T) {
+	test1 := createTestTaskRunner("test1", 1)
+	test2 := createTestTaskRunner("test1", 1)
+
+	test3 := createTestTaskRunner("test3", 3)
+	test4 := createTestTaskRunner("test3", 3)
+
+	test5 := createTestTaskRunner("test5", 1)
+	test6 := createTestTaskRunner("test5", 1)
+
+	test7 := createTestTaskRunner("test7", 2)
+	test8 := createTestTaskRunner("test8", 3)
+
+	test1.AddChildren(test3, test4)
+	test2.AddChildren(test3, test4)
+
+	test5.AddChildren(test7, test8)
+	test6.AddChildren(test7)
+
+	var tests = []struct {
+		input []TaskRunner
+		want  bool
+	}{
+		{[]TaskRunner{test1, test2}, true},
+		{[]TaskRunner{test5, test6}, false},
+		{[]TaskRunner{test7, test8}, false},
+	}
+	for _, test := range tests {
+		task_hashes := []string{}
+		for _, runner := range test.input {
+			task_hashes = append(task_hashes, runner.GetTask().GetHash())
+		}
+
+		first_hash, second_hash := task_hashes[0], task_hashes[1]
+		result := first_hash == second_hash
+
+		if result != test.want {
+			t.Errorf("GetHash Failed got %v not %v: hash1 %s hash2 %s", result, test.want, first_hash, second_hash)
 		}
 	}
 

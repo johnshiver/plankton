@@ -3,7 +3,6 @@ package main
 import (
 	"encoding/csv"
 	"encoding/json"
-	"fmt"
 	"io"
 	"log"
 	"os"
@@ -24,11 +23,7 @@ func (cv *CSVExtractor) Run() {
 	}
 	defer f.Close()
 
-	stats, _ := f.Stat()
-
-	fmt.Println(stats.Size)
 	reader := csv.NewReader(f)
-
 	for {
 		record, err := reader.Read()
 		if err == io.EOF {
