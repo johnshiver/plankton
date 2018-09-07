@@ -70,6 +70,36 @@ func (ts *Task) GetHash() string {
 	return fmt.Sprintf("%v", (makeStringHash(string_to_hash)))
 }
 
+/*
+   Given a Task, return a serialized string to represent it.
+
+   This is useful for storing the state of each Task that is run in the dag, and can
+   be used to re-create a previously run task for DAG re-runs, backfills, or some other
+   use case.
+
+   Example:
+
+    type TestTask struct {
+	    *Task
+	    N int    `task_param:""`
+	    X string `task_param:""`
+	    Z int
+    }
+
+    new_test_task := TestTask{
+	5,
+	"HI",
+	0,
+    }
+    serialized_test_task := new_test_task.GetSerializedParams()
+    fmt.Println(serialized_test_task)
+    > N:INT:5_X:STR:HI
+
+    This function uses a lot of reflection / is kind of tricky. Would be good to document
+    exactly how this works because I constantly forget what these variables mean :P
+*/
+
+// TODO: i think this method needs a rename
 func (ts *Task) GetSerializedParams() string {
 
 	param_strings := []string{}
@@ -78,6 +108,10 @@ func (ts *Task) GetSerializedParams() string {
 
 		// TODO: Should support all types in SetParam
 		//       maybe there is a way to combine the logic
+
+		// TODO: add support for some Date type, that should be enough to start
+		//       working on running DAGS, storing their state, then re-running them
+		//       with another command
 		switch param.Data.Kind() {
 		case reflect.Int:
 			data_val = fmt.Sprintf("%v", param.Data.Int())
@@ -87,15 +121,15 @@ func (ts *Task) GetSerializedParams() string {
 			data_type = "STR"
 		default:
 			// TODO: think about what to do in this case
-			fmt.Println("Param not supported in hashing")
+			fmt.Println("Param %s not included in the serialized task, its type is not currently supported.", param.Name)
 		}
 
-		data_hash_elems := []string{
+		param_serializer_elements := []string{
 			param.Name,
 			data_type,
 			data_val,
 		}
-		param_strings = append(param_strings, strings.Join(data_hash_elems, ":"))
+		param_strings = append(param_strings, strings.Join(param_serializer_elements, ":"))
 	}
 	return strings.Join(param_strings, "_")
 
@@ -138,7 +172,7 @@ func DeserializeTaskParams(serialized_pr string) ([]*TaskParam, error) {
 
 // Uses reflection to inspect struct elements for 'task_param' tag
 // and sets tr.Task.Params accordingly
-func SetTaskParams(tr TaskRunner) ([]*TaskParam, error) {
+func CreateAndSetTaskParams(tr TaskRunner) ([]*TaskParam, error) {
 
 	const TASK_PARAM_TAG = "task_param"
 	var task_params []*TaskParam
@@ -213,7 +247,7 @@ func CreateTaskRunnerFromParams(tr TaskRunner, params []*TaskParam) error {
 
 }
 
-func SetTaskParamsFromHash(tr TaskRunner, param_hash string) error {
+func CreateAndSetTaskParamsFromHash(tr TaskRunner, param_hash string) error {
 	task_params, err := DeserializeTaskParams(param_hash)
 	if err != nil {
 		return err

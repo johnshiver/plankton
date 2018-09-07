@@ -8,7 +8,6 @@ import (
 
 	"github.com/jinzhu/gorm"
 	_ "github.com/jinzhu/gorm/dialects/postgres"
-	"github.com/nu7hatch/gouuid"
 
 	"github.com/johnshiver/plankton/task"
 )
@@ -32,7 +31,7 @@ func NewTaskScheduler(task_runner task.TaskRunner, record_run bool) (*TaskSchedu
 	for len(task_queue) > 0 {
 		curr := task_queue[0]
 		task_queue = task_queue[1:]
-		task.SetTaskParams(curr)
+		task.CreateAndSetTaskParams(curr)
 		for _, child := range curr.GetTask().Children {
 			task_queue = append(task_queue, child)
 		}

@@ -10,6 +10,8 @@ import (
 // TODO: make task param flag nicer
 type TestTask struct {
 	*Task
+
+	// TODO: make the test task_param fields more descriptive
 	N int    `task_param:""`
 	X string `task_param:""`
 	Z int
@@ -23,7 +25,7 @@ func (tt *TestTask) GetTask() *Task {
 }
 
 func compareTestTaskParams(a, b *TestTask) bool {
-	if a.N == b.N {
+	if a.N == b.N && a.X == b.X {
 		return true
 	}
 	return false
@@ -36,12 +38,13 @@ func createTestTaskRunner(name string, n int) *TestTask {
 		"TestString",
 		0,
 	}
-	SetTaskParams(&new_runner)
+	CreateAndSetTaskParams(&new_runner)
 	return &new_runner
 
 }
 
 func TestVerifyDAG(t *testing.T) {
+	// TODO: add more variations of bad dags
 
 	good_dag := createTestTaskRunner("good_dag", 1)
 	test2 := createTestTaskRunner("test2", 1)
@@ -80,7 +83,9 @@ func TestVerifyDAG(t *testing.T) {
 
 }
 
-func TestSetTaskParams(t *testing.T) {
+// Tests that, given a new task runner, the CreateAndSetTaskParams function correctly
+// creates and sets the task params back on the task runner
+func TestCreateAndSetTaskParams(t *testing.T) {
 	test1 := createTestTaskRunner("test1", 1)
 
 	var tests = []struct {
@@ -90,6 +95,8 @@ func TestSetTaskParams(t *testing.T) {
 		{test1, []*TaskParam{
 			&TaskParam{
 				Name: "N",
+				// TODO: this means we need to test getFieldValue too
+				//       or determine it doesnt need to be tested
 				Data: getFieldValue(test1, "N"),
 			},
 			&TaskParam{
@@ -101,8 +108,8 @@ func TestSetTaskParams(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		if output, _ := SetTaskParams(test.input); !(reflect.DeepEqual(output, test.want)) {
-			t.Errorf("SetTaskParams(%v) = %v, wanted: %v", test.input, output, test.want)
+		if output, _ := CreateAndSetTaskParams(test.input); !(reflect.DeepEqual(output, test.want)) {
+			t.Errorf("CreateAndSetTaskParams(%v) = %v, wanted: %v", test.input, output, test.want)
 		}
 	}
 
@@ -133,7 +140,7 @@ func TestGetSerializedParams(t *testing.T) {
 	for _, test := range tests {
 		task_hashes := []string{}
 		for _, runner := range test.input {
-			SetTaskParams(runner)
+			CreateAndSetTaskParams(runner)
 			task_hashes = append(task_hashes, runner.GetTask().GetSerializedParams())
 		}
 
@@ -196,7 +203,7 @@ func TestCreateTaskRunnerFromParams(t *testing.T) {
 	test1 := createTestTaskRunner("test1", 1)
 	// modify default value
 	test1.N = 25
-	task_params, _ := SetTaskParams(test1)
+	task_params, _ := CreateAndSetTaskParams(test1)
 	test1_clone := createTestTaskRunner("test1_clone", 1)
 	// TODO: re-name this Function
 	CreateTaskRunnerFromParams(test1_clone, task_params)
@@ -233,7 +240,7 @@ func TestCreateTaskRunnerFromHash(t *testing.T) {
 	// TODO: add string param
 	serialized_task_param1 := "N:INT:5_X:STR:HEYA"
 	test_1 := TestTask{}
-	_ = SetTaskParamsFromHash(&test_1, serialized_task_param1)
+	_ = CreateAndSetTaskParamsFromHash(&test_1, serialized_task_param1)
 	if test_1.N != 5 {
 		t.Errorf("Failed to set N on test struct %d", test_1.N)
 	}
