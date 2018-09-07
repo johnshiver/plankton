@@ -8,6 +8,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/davecgh/go-spew/spew"
 )
 
 type TaskRunner interface {
@@ -115,9 +117,12 @@ func DeserializeTaskParams(serialized_pr string) ([]*TaskParam, error) {
 				return nil, err
 			}
 			final_val = reflect.ValueOf(final_int)
-			// final_val.SetInt(final_int)
 		case "STR":
 			final_val = reflect.ValueOf(d_val)
+		default:
+			spew.Println(final_val)
+			fmt.Println("Not supported yet")
+			continue
 		}
 
 		new_param := &TaskParam{
@@ -149,6 +154,7 @@ func SetTaskParams(tr TaskRunner) ([]*TaskParam, error) {
 				Data: getFieldValue(tr, field_info.Name),
 			}
 			task_params = append(task_params, &new_param)
+
 		}
 	}
 
@@ -207,6 +213,21 @@ func CreateTaskRunnerFromParams(tr TaskRunner, params []*TaskParam) error {
 
 }
 
+func SetTaskParamsFromHash(tr TaskRunner, param_hash string) error {
+	task_params, err := DeserializeTaskParams(param_hash)
+	if err != nil {
+		return err
+	}
+
+	err = CreateTaskRunnerFromParams(tr, task_params)
+	if err != nil {
+		return err
+	}
+
+	return nil
+
+}
+
 func (ts *Task) AddChildren(children ...TaskRunner) []TaskRunner {
 	new_task_children := []TaskRunner{}
 	for _, child := range children {
@@ -234,7 +255,7 @@ func (ts *Task) SetState(new_state string) (string, error) {
 	}
 
 	if !valid_state_param {
-		return "", fmt.Errorf("Invalid state on task {}", new_state)
+		return "", fmt.Errorf("Invalid state on task %s", new_state)
 	}
 
 	ts.State = new_state

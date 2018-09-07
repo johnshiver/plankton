@@ -10,7 +10,8 @@ import (
 // TODO: make task param flag nicer
 type TestTask struct {
 	*Task
-	N int `task_param:""`
+	N int    `task_param:""`
+	X string `task_param:""`
 	Z int
 }
 
@@ -32,6 +33,7 @@ func createTestTaskRunner(name string, n int) *TestTask {
 	new_runner := TestTask{
 		NewTask(name),
 		n,
+		"TestString",
 		0,
 	}
 	SetTaskParams(&new_runner)
@@ -72,7 +74,7 @@ func TestVerifyDAG(t *testing.T) {
 	}
 	for _, test := range tests {
 		if output := VerifyDAG(test.input); output != test.want {
-			t.Errorf("VerifyDAG(%q) = %v", test.input, output)
+			t.Errorf("VerifyDAG(%v) = %v", test.input, output)
 		}
 	}
 
@@ -90,13 +92,17 @@ func TestSetTaskParams(t *testing.T) {
 				Name: "N",
 				Data: getFieldValue(test1, "N"),
 			},
+			&TaskParam{
+				Name: "X",
+				Data: getFieldValue(test1, "X"),
+			},
 		},
 		},
 	}
 
 	for _, test := range tests {
 		if output, _ := SetTaskParams(test.input); !(reflect.DeepEqual(output, test.want)) {
-			t.Errorf("SetTaskParams(%v) = %v, wanted: ", test.input, output, test.want)
+			t.Errorf("SetTaskParams(%v) = %v, wanted: %v", test.input, output, test.want)
 		}
 	}
 
@@ -204,11 +210,35 @@ func TestCreateParamFromSerializedParam(t *testing.T) {
 	serialized_task_param1 := "Foop:INT:5"
 	task_params, _ := DeserializeTaskParams(serialized_task_param1)
 	new_task_param := task_params[0]
-	spew.Dump(new_task_param)
 	if new_task_param.Name != "Foop" {
 		t.Errorf("Failed to set correct name on TaskParam %s", "Foop")
+	}
+	if new_task_param.Data.Int() != 5 {
+		t.Errorf("Failed to set correct value on TaskParam %d", 5)
+	}
+
+	serialized_task_param2 := "Poof:STR:HEYA"
+	task_params, _ = DeserializeTaskParams(serialized_task_param2)
+	new_task_param = task_params[0]
+	if new_task_param.Name != "Poof" {
+		t.Errorf("Failed to set correct name on TaskParam expected: %s got: %s", "Poof", new_task_param.Name)
+	}
+	if new_task_param.Data.String() != "HEYA" {
+		t.Errorf("Failed to set correct value on TaskParam, expected: %s got:%s", "HEYA", new_task_param.Data.String())
 	}
 
 }
 
-// Create TaskRunner From Hash
+func TestCreateTaskRunnerFromHash(t *testing.T) {
+	// TODO: add string param
+	serialized_task_param1 := "N:INT:5_X:STR:HEYA"
+	test_1 := TestTask{}
+	_ = SetTaskParamsFromHash(&test_1, serialized_task_param1)
+	if test_1.N != 5 {
+		t.Errorf("Failed to set N on test struct %d", test_1.N)
+	}
+	if test_1.X != "HEYA" {
+		t.Errorf("Failed to set X on test struct %s", test_1.X)
+	}
+
+}
