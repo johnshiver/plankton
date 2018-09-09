@@ -121,7 +121,7 @@ func (ts *Task) GetSerializedParams() string {
 			data_type = "STR"
 		default:
 			// TODO: think about what to do in this case
-			fmt.Println("Param %s not included in the serialized task, its type is not currently supported.", param.Name)
+			fmt.Printf("Param %s not included in the serialized task, its type is not currently supported.\n", param.Name)
 		}
 
 		param_serializer_elements := []string{

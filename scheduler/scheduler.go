@@ -8,6 +8,7 @@ import (
 
 	"github.com/jinzhu/gorm"
 	_ "github.com/jinzhu/gorm/dialects/postgres"
+	uuid "github.com/nu7hatch/gouuid"
 
 	"github.com/johnshiver/plankton/task"
 )
@@ -120,9 +121,10 @@ func (ts *TaskScheduler) getDAGState() string {
 		curr_state := fmt.Sprintf("\t %s", curr.State)
 		curr_run_time := fmt.Sprintf("\t %s", running_time)
 		curr_data_processed := fmt.Sprintf("\t data processed so far: %d", curr.DataProcessed)
-		curr_hash := curr.GetSerializedParams()
-		curr_hash = strings.TrimRight(curr_hash, "_")
-		dag_state_strings = append(dag_state_strings, curr_hash)
+		serialized_task_params := curr.GetSerializedParams()
+		serialized_task_params = strings.TrimRight(serialized_task_params, "_")
+
+		dag_state_strings = append(dag_state_strings, curr.Name+"=> "+serialized_task_params)
 		dag_state_strings = append(dag_state_strings, curr_state)
 		dag_state_strings = append(dag_state_strings, curr_run_time)
 		if curr.DataProcessed > 0 {

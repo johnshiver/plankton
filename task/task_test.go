@@ -115,6 +115,11 @@ func TestCreateAndSetTaskParams(t *testing.T) {
 
 }
 
+/*
+Check that task runners are serializing their params correctly. Essentially, the same task runner
+With different params set should produce unique serializations.  Doesnt check the actual content
+of the serialized string, just uniqueness.
+*/
 func TestGetSerializedParams(t *testing.T) {
 	test1 := createTestTaskRunner("test1", 1)
 	test2 := createTestTaskRunner("test1", 1)
@@ -138,14 +143,14 @@ func TestGetSerializedParams(t *testing.T) {
 		{[]TaskRunner{test7, test8}, false},
 	}
 	for _, test := range tests {
-		task_hashes := []string{}
+		serialized_task_params := []string{}
 		for _, runner := range test.input {
 			CreateAndSetTaskParams(runner)
-			task_hashes = append(task_hashes, runner.GetTask().GetSerializedParams())
+			serialized_task_params = append(serialized_task_params, runner.GetTask().GetSerializedParams())
 		}
 
-		first_hash, second_hash := task_hashes[0], task_hashes[1]
-		result := first_hash == second_hash
+		s_param1, s_param2 := serialized_task_params[0], serialized_task_params[1]
+		result := s_param1 == s_param2
 
 		if result != test.want {
 			test_input := spew.Sdump(test.input)
@@ -155,7 +160,11 @@ func TestGetSerializedParams(t *testing.T) {
 
 }
 
-// Tests that task runners with identical params + name but different children produce different hashes
+/*
+Tests the Task.GetHash method, which is built to ensure tasks can be uniquly identified by their
+params + children, i.e. if two task runners have the same params and the same children, they
+should produce the same hash.
+*/
 func TestGetHash(t *testing.T) {
 	test1 := createTestTaskRunner("test1", 1)
 	test2 := createTestTaskRunner("test1", 1)
