@@ -42,3 +42,11 @@ func ReadConfig() {
 	}
 
 }
+
+func SetDataBase(db *gorm.DB) {
+	if err := db.DB().Ping(); err != nil {
+		log.Fatal(err)
+		exit(1)
+	}
+	c.DataBase = db
+}
