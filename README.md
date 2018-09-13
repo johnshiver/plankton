@@ -48,3 +48,5 @@ There is still a lot of work to be done to make Plankton feature complete.
   or not the task GetHash algorithm doesnt have collisions.  If there are collisions such that
   two tasks with different parameters have the same hash, then the DAG cannot be effectively
   recreated.
+- create API server for scheduler, so it can create dag runs.  can be used by eventual whale / borg
+  package that schedules the tasks
