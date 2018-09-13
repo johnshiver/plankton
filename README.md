@@ -44,3 +44,7 @@ There is still a lot of work to be done to make Plankton feature complete.
 - allow schedulers to run on a schedule : P think a cron type input
        scheduler := NewScheduler(task_dag, "* * * * *", record_results=True)
 - recreate entire DAGs from metadata.  Currently only single tasks can be re-created.
+- The tools needed to re-create the DAG exist in the metadata, BUT an outstanding issue is whether
+  or not the task GetHash algorithm doesnt have collisions.  If there are collisions such that
+  two tasks with different parameters have the same hash, then the DAG cannot be effectively
+  recreated.
