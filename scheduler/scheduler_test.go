@@ -1,4 +1,4 @@
-package schduler
+package scheduler
 
 import "testing"
 

@@ -1,15 +1,33 @@
 package config
 
 import (
+	"fmt"
 	"log"
+	"os"
 
 	"github.com/jinzhu/gorm"
 	_ "github.com/jinzhu/gorm/dialects/postgres"
 	_ "github.com/jinzhu/gorm/dialects/sqlite"
+	"github.com/johnshiver/plankton/scheduler"
 	"github.com/spf13/viper"
 )
 
 var c Config
+
+var DEFAULT_DATABASE = DatabaseConfig{
+	Type: "sqlite",
+	Host: "/tmp/plankton_test.db",
+}
+
+type Config struct {
+	DataBase *gorm.DB
+	DBConfig DatabaseConfig
+}
+
+type DatabaseConfig struct {
+	Type string
+	Host string
+}
 
 func init() {
 	viper.SetConfigType("yml")
@@ -22,11 +40,8 @@ func init() {
 		        from yaml, get the database config (for now sqlite or postgres)
 			then determine if the connection string is valid
 	*/
+	ReadConfig()
 
-}
-
-type Config struct {
-	DataBase *gorm.DB
 }
 
 func GetConfig() Config {
@@ -41,12 +56,27 @@ func ReadConfig() {
 		log.Fatal(err.Error())
 	}
 
+	database_type := viper.GetString("database_type")
+	database_host := viper.GetString("database_host")
+	fmt.Println(database_type, database_host)
+
+	SetDatabaseConfig(DEFAULT_DATABASE)
+	db, err := gorm.Open(c.DBConfig.Type, c.DBConfig.Host)
+
+	// TODO: might revisit this decision
+	db.AutoMigrate(&scheduler.PlanktonRecord{})
+	SetDataBase(db)
+
 }
 
 func SetDataBase(db *gorm.DB) {
 	if err := db.DB().Ping(); err != nil {
 		log.Fatal(err)
-		exit(1)
+		os.Exit(1)
 	}
 	c.DataBase = db
+}
+
+func SetDatabaseConfig(db_config DatabaseConfig) {
+	c.DBConfig = db_config
 }

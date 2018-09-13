@@ -19,7 +19,7 @@ func main() {
 	m2.AddChildren(lo_task)
 	hiLoAgg.AddChildren(m1, m2)
 
-	my_scheduler, err := scheduler.NewTaskScheduler(hiLoAgg, false, "0 * * 5")
+	my_scheduler, err := scheduler.NewTaskScheduler(hiLoAgg, false)
 	if err != nil {
 		log.Panic(err)
 	}
