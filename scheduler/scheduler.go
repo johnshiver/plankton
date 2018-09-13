@@ -10,6 +10,7 @@ import (
 	_ "github.com/jinzhu/gorm/dialects/postgres"
 	uuid "github.com/nu7hatch/gouuid"
 
+	"github.com/johnshiver/plankton/config"
 	"github.com/johnshiver/plankton/task"
 )
 
@@ -157,18 +158,16 @@ type PlanktonRecord struct {
 }
 
 func (ts *TaskScheduler) recordDAGRun() {
-	// Some considerations: i have chosen for now to record the entire run after its completion
-	// it may make sense for each task to individually record its state as it finishes
-	// might make it cleaner when errors occur / etc.  will revisit this once things are working a bit better
+	/*
+		Some considerations: i have chosen for now to record the entire run after its completion
+		it may make sense for each task to individually record its state as it finishes
+		might make it cleaner when errors occur / etc.  will revisit this once things are working a bit better
 
-	// TODO: use a config for this stuff
-	// TODO: consider using another database ORM or just pure sql, for now i want to get this working
-	db, err := gorm.Open("postgres", "host=127.0.0.1 port=5432 user=postgres dbname=mytestdb password=mysecretpassword sslmode=disable")
-	if err != nil {
-		panic("failed to connect database")
-	}
-	defer db.Close()
-	db.AutoMigrate(&PlanktonRecord{})
+		TODO: consider using another database ORM or just pure sql, for now i want to get this working
+	*/
+
+	c := config.GetConfig()
+	c.DataBase.AutoMigrate(PlanktonRecord{})
 
 	root_task := ts.root_runner.GetTask()
 	task_queue := []*task.Task{}
@@ -200,7 +199,7 @@ func (ts *TaskScheduler) recordDAGRun() {
 			SchedulerUUID: ts.uuid.String(),
 			ExecutionTime: execution_time.Seconds(),
 		}
-		db.Create(&new_plankton_record)
+		c.DataBase.Create(&new_plankton_record)
 		for _, child := range curr.Children {
 			task_queue = append(task_queue, child.GetTask())
 		}

@@ -6,9 +6,9 @@ import (
 	"os"
 
 	"github.com/jinzhu/gorm"
+
 	// _ "github.com/jinzhu/gorm/dialects/postgres"
 	_ "github.com/jinzhu/gorm/dialects/sqlite"
-	"github.com/johnshiver/plankton/scheduler"
 	"github.com/spf13/viper"
 )
 
@@ -40,15 +40,18 @@ func init() {
 		        from yaml, get the database config (for now sqlite or postgres)
 			then determine if the connection string is valid
 	*/
-	ReadConfig()
+	readConfig()
 
 }
 
 func GetConfig() Config {
+	if c == (Config{}) {
+		readConfig()
+	}
 	return c
 }
 
-func ReadConfig() {
+func readConfig() {
 	err := viper.ReadInConfig()
 	log.Printf("Using configuration file: %s\n", viper.ConfigFileUsed())
 
@@ -65,13 +68,14 @@ func ReadConfig() {
 		Host: database_host,
 	})
 
+	// db, err := gorm.Open("postgres", "host=127.0.0.1 port=5432 user=postgres dbname=mytestdb password=mysecretpassword sslmode=disable")
 	db, err := gorm.Open(c.DBConfig.Type, c.DBConfig.Host)
 	if err != nil {
 		panic(err)
 	}
 
 	// TODO: might revisit this decision
-	db.AutoMigrate(&scheduler.PlanktonRecord{})
+	//db.AutoMigrate(&scheduler.PlanktonRecord{})
 	SetDataBase(db)
 
 }
