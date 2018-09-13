@@ -6,7 +6,7 @@ import (
 	"os"
 
 	"github.com/jinzhu/gorm"
-	_ "github.com/jinzhu/gorm/dialects/postgres"
+	// _ "github.com/jinzhu/gorm/dialects/postgres"
 	_ "github.com/jinzhu/gorm/dialects/sqlite"
 	"github.com/johnshiver/plankton/scheduler"
 	"github.com/spf13/viper"
@@ -15,7 +15,7 @@ import (
 var c Config
 
 var DEFAULT_DATABASE = DatabaseConfig{
-	Type: "sqlite",
+	Type: "sqlite3",
 	Host: "/tmp/plankton_test.db",
 }
 
@@ -60,8 +60,15 @@ func ReadConfig() {
 	database_host := viper.GetString("database_host")
 	fmt.Println(database_type, database_host)
 
-	SetDatabaseConfig(DEFAULT_DATABASE)
+	SetDatabaseConfig(DatabaseConfig{
+		Type: database_type,
+		Host: database_host,
+	})
+
 	db, err := gorm.Open(c.DBConfig.Type, c.DBConfig.Host)
+	if err != nil {
+		panic(err)
+	}
 
 	// TODO: might revisit this decision
 	db.AutoMigrate(&scheduler.PlanktonRecord{})
