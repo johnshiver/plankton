@@ -1,2 +1,5 @@
 database_type: "sqlite3"
 database_host: "plankton.db"
+
+database_type: "postgres"
+database_host: "host=127.0.0.1 port=5432 user=postgres dbname=mytestdb password=mysecretpassword sslmode=disable")

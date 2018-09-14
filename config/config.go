@@ -14,7 +14,7 @@ import (
 
 var c Config
 
-var DEFAULT_DATABASE = DatabaseConfig{
+var TEST_DATABASE = DatabaseConfig{
 	Type: "sqlite3",
 	Host: "/tmp/plankton_test.db",
 }
@@ -46,12 +46,13 @@ func init() {
 
 func GetConfig() Config {
 	if c == (Config{}) {
-		readConfig()
+		ReadAndSetConfig()
 	}
 	return c
 }
 
-func readConfig() {
+// TODO should change this function name, Read / Set
+func ReadAndSetConfig() {
 	err := viper.ReadInConfig()
 	log.Printf("Using configuration file: %s\n", viper.ConfigFileUsed())
 
@@ -68,26 +69,18 @@ func readConfig() {
 		Host: database_host,
 	})
 
-	// db, err := gorm.Open("postgres", "host=127.0.0.1 port=5432 user=postgres dbname=mytestdb password=mysecretpassword sslmode=disable")
+}
+
+func SetDatabaseConfig(db_config DatabaseConfig) {
+	c.DBConfig = db_config
 	db, err := gorm.Open(c.DBConfig.Type, c.DBConfig.Host)
 	if err != nil {
 		panic(err)
 	}
 
-	// TODO: might revisit this decision
-	//db.AutoMigrate(&scheduler.PlanktonRecord{})
-	SetDataBase(db)
-
-}
-
-func SetDataBase(db *gorm.DB) {
 	if err := db.DB().Ping(); err != nil {
 		log.Fatal(err)
 		os.Exit(1)
 	}
 	c.DataBase = db
-}
-
-func SetDatabaseConfig(db_config DatabaseConfig) {
-	c.DBConfig = db_config
 }
