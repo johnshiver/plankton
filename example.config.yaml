@@ -1,2 +1,2 @@
-database_type: "sqlite"
+database_type: "sqlite3"
 database_host: "plankton.db"
