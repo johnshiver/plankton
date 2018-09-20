@@ -9,7 +9,7 @@ import (
 
 // TODO: make this test task stuff shared
 type TestTask struct {
-	*Task
+	*task.Task
 
 	// TODO: make the test task_param fields more descriptive
 	N int    `task_param:""`
@@ -20,7 +20,7 @@ type TestTask struct {
 func (tt *TestTask) Run() {
 	return
 }
-func (tt *TestTask) GetTask() *Task {
+func (tt *TestTask) GetTask() *task.Task {
 	return tt.Task
 }
 
@@ -43,9 +43,7 @@ func createTestTaskRunner(name, x string, n int) *TestTask {
 }
 
 func init() {
-	c := config.GetConfig()
-	c.SetDatabaseConfig(config.TEST_DATABASE)
-	c.ReadAndSetConfig()
+	config.SetDatabaseConfig(config.TEST_SQLITE_DATABASE)
 }
 
 func TestSaveSchedulerDag(t *testing.T) {
@@ -53,9 +51,10 @@ func TestSaveSchedulerDag(t *testing.T) {
 	t2 := createTestTaskRunner("t2", "test2", 1)
 	t3 := createTestTaskRunner("t3", "test3", 2)
 	t1.GetTask().AddChildren(t2, t3)
+	// create scheduler that doesnt print to standard out
 	test_scheduler, err := NewTaskScheduler(t1, true)
 	if err != nil {
-		return err
+		t.Errorf("Received error from task scheduler %v", err)
 	}
 	test_scheduler.Start()
 	// TODO: add methods on scheduler to retrieve info from database

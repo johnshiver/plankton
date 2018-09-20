@@ -1,7 +1,6 @@
 package config
 
 import (
-	"fmt"
 	"log"
 	"os"
 
@@ -14,9 +13,14 @@ import (
 
 var c Config
 
-var TEST_DATABASE = DatabaseConfig{
+var TEST_SQLITE_DATABASE = DatabaseConfig{
 	Type: "sqlite3",
 	Host: "/tmp/plankton_test.db",
+}
+
+var DEFAULT_SQLITE_DATABASE = DatabaseConfig{
+	Type: "sqlite3",
+	Host: "/tmp/plankton.db",
 }
 
 type Config struct {
@@ -34,13 +38,12 @@ func init() {
 	viper.SetConfigName("config")
 	viper.AddConfigPath("/etc/plankton")
 	viper.AddConfigPath(".")
-
 	/*
 			initalize config
 		        from yaml, get the database config (for now sqlite or postgres)
 			then determine if the connection string is valid
 	*/
-	readConfig()
+	ReadAndSetConfig()
 
 }
 
@@ -57,17 +60,18 @@ func ReadAndSetConfig() {
 	log.Printf("Using configuration file: %s\n", viper.ConfigFileUsed())
 
 	if err != nil {
-		log.Fatal(err.Error())
+		log.Println(err.Error())
+		log.Println("Using default sqlite db")
+		SetDatabaseConfig(DEFAULT_SQLITE_DATABASE)
+	} else {
+
+		database_type := viper.GetString("database_type")
+		database_host := viper.GetString("database_host")
+		SetDatabaseConfig(DatabaseConfig{
+			Type: database_type,
+			Host: database_host,
+		})
 	}
-
-	database_type := viper.GetString("database_type")
-	database_host := viper.GetString("database_host")
-	fmt.Println(database_type, database_host)
-
-	SetDatabaseConfig(DatabaseConfig{
-		Type: database_type,
-		Host: database_host,
-	})
 
 }
 
