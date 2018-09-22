@@ -1,6 +1,7 @@
 package scheduler
 
 import (
+	"os"
 	"testing"
 
 	"github.com/johnshiver/plankton/config"
@@ -42,8 +43,21 @@ func createTestTaskRunner(name, x string, n int) *TestTask {
 
 }
 
-func init() {
+var test_config config.Config
+
+/*
+Function that can do setup / tear down for tests
+
+https://golang.org/pkg/testing/#hdr-Main
+*/
+func TestMain(m *testing.M) {
 	config.SetDatabaseConfig(config.TEST_SQLITE_DATABASE)
+	test_config = config.GetConfig()
+
+	exit_code := m.Run()
+
+	test_config.DataBase.DropTable(&PlanktonRecord{})
+	os.Exit(exit_code)
 }
 
 func TestSaveSchedulerDag(t *testing.T) {
@@ -57,7 +71,11 @@ func TestSaveSchedulerDag(t *testing.T) {
 		t.Errorf("Received error from task scheduler %v", err)
 	}
 	test_scheduler.Start()
-	// TODO: add methods on scheduler to retrieve info from database
+	var records []PlanktonRecord
+	test_config.DataBase.Where("scheduler_uuid = ?", test_scheduler.uuid.String()).Find(&records)
+	if len(records) < 1 {
+		t.Errorf("Failed to create test records")
+	}
 
 }
 
