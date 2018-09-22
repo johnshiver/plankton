@@ -141,8 +141,16 @@ func (ts *TaskScheduler) getDAGState() string {
 	return strings.Join(dag_state_strings, "\n")
 }
 
-// re runs tasks associated with schduler uuid
-func ReRunTask(root_task task.Task, scheduler_uuid string) {
+func AreTaskDagsEqual(task_dag1, task_dag2 task.TaskRunner) bool {
+	return false
+}
+
+/*
+re runs previously scheduled task dag.  all tasks in a task dag runn share a scheduler uuid
+
+which is the expected input.  root_dag
+*/
+func ReCreateStoredDag(root_dag task.TaskRunner, scheduler_uuid string) {
 
 }
 
