@@ -77,6 +77,58 @@ func TestSaveSchedulerDag(t *testing.T) {
 		t.Errorf("Failed to create test records")
 	}
 
+	record_map := make(map[string]PlanktonRecord)
+	for _, record := range records {
+		record_map[record.TaskName] = record
+	}
+
+	// test params
+	var param_tests = []struct {
+		input string
+		want  string
+	}{
+		{"t1", t1.GetSerializedParams()},
+		{"t2", t2.GetSerializedParams()},
+		{"t3", t3.GetSerializedParams()},
+	}
+	for _, test := range param_tests {
+		record := record_map[test.input]
+		if record.TaskParams != test.want {
+			t.Errorf("%s record stored %s, wanted %s", test.input, record.TaskParams, test.want)
+		}
+	}
+
+	// test hashes
+	var hash_tests = []struct {
+		input string
+		want  string
+	}{
+		{"t1", t1.GetHash()},
+		{"t2", t2.GetHash()},
+		{"t3", t3.GetHash()},
+	}
+	for _, test := range hash_tests {
+		record := record_map[test.input]
+		if record.TaskHash != test.want {
+			t.Errorf("%s record stored %s, wanted %s", test.input, record.TaskHash, test.want)
+		}
+	}
+
+	// test hashes
+	var parent_tests = []struct {
+		input string
+		want  string
+	}{
+		{"t1", ""},
+		{"t2", t1.GetHash()},
+		{"t3", t1.GetHash()},
+	}
+	for _, test := range parent_tests {
+		record := record_map[test.input]
+		if record.ParentHash != test.want {
+			t.Errorf("%s record stored %s, wanted %s", test.input, record.TaskHash, test.want)
+		}
+	}
 }
 
 func TestRecreateStoredDag(t *testing.T) {
