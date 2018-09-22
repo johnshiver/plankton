@@ -16,8 +16,9 @@ import (
 
 type TaskScheduler struct {
 	root_runner task.TaskRunner
-	uuid        *uuid.UUID
-	record_run  bool
+	// TODO: create a method that returns the uuid string, as that is how it's being consumed
+	uuid       *uuid.UUID
+	record_run bool
 
 	// TODO: if i set params here, would be nice to automatically set those on all
 	//       tasks in the dag

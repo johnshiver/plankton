@@ -4,6 +4,7 @@ import (
 	"os"
 	"testing"
 
+	"github.com/davecgh/go-spew/spew"
 	"github.com/johnshiver/plankton/config"
 	"github.com/johnshiver/plankton/task"
 )
@@ -71,6 +72,7 @@ func TestSaveSchedulerDag(t *testing.T) {
 		t.Errorf("Received error from task scheduler %v", err)
 	}
 	test_scheduler.Start()
+
 	var records []PlanktonRecord
 	test_config.DataBase.Where("scheduler_uuid = ?", test_scheduler.uuid.String()).Find(&records)
 	if len(records) < 1 {
@@ -114,7 +116,7 @@ func TestSaveSchedulerDag(t *testing.T) {
 		}
 	}
 
-	// test hashes
+	// test parent hashes
 	var parent_tests = []struct {
 		input string
 		want  string
@@ -131,6 +133,83 @@ func TestSaveSchedulerDag(t *testing.T) {
 	}
 }
 
+func TestCompareTwoTaskDagsForEquality(t *testing.T) {
+	// test dag 1
+	t1 := createTestTaskRunner("t1", "test1", 0)
+	t2 := createTestTaskRunner("t2", "test2", 1)
+	t3 := createTestTaskRunner("t3", "test3", 2)
+	t3.AddChildren(t2, t1)
+
+	// test dag 2, should be equivalent to test dag 1
+	t4 := createTestTaskRunner("t1", "test1", 0)
+	t5 := createTestTaskRunner("t2", "test2", 1)
+	t6 := createTestTaskRunner("t3", "test3", 2)
+	t6.AddChildren(t5, t4)
+
+	// test dag 3, not equivalent to dag 1 for names
+	t7 := createTestTaskRunner("t10000000", "test1", 0)
+	t8 := createTestTaskRunner("t2", "test2", 1)
+	t9 := createTestTaskRunner("t3", "test3", 2)
+	t9.AddChildren(t8, t7)
+
+	// test dag 4, not equivalent to dag 1 for string params
+	t10 := createTestTaskRunner("t1", "test1000000000", 0)
+	t11 := createTestTaskRunner("t2", "test2", 1)
+	t12 := createTestTaskRunner("t3", "test3", 2)
+	t12.AddChildren(t11, t10)
+
+	// test dag 5, not equivalent to dag 1 for int params
+	t13 := createTestTaskRunner("t1", "test1", 10000000000000)
+	t14 := createTestTaskRunner("t2", "test2", 1)
+	t15 := createTestTaskRunner("t3", "test3", 2)
+	t15.AddChildren(t14, t13)
+
+	if !AreTaskDagsEqual(t3, t6) {
+		t.Errorf("Tasks dags werent equal, equality check failed")
+		spew.Dump(t3)
+		spew.Dump(t4)
+	}
+
+	if AreTaskDagsEqual(t3, t9) {
+		t.Errorf("Tasks dags should NOT have been equal, different task names")
+		spew.Dump(t3)
+		spew.Dump(t9)
+	}
+
+	if AreTaskDagsEqual(t3, t12) {
+		t.Errorf("Tasks dags should NOT have been equal, different string params")
+		spew.Dump(t3)
+		spew.Dump(t12)
+	}
+	if AreTaskDagsEqual(t3, t15) {
+		t.Errorf("Tasks dags should NOT have been equal, different int params")
+		spew.Dump(t3)
+		spew.Dump(t15)
+	}
+
+}
+
 func TestRecreateStoredDag(t *testing.T) {
+	t1 := createTestTaskRunner("t1", "test1", 0)
+	t2 := createTestTaskRunner("t2", "test2", 1)
+	t3 := createTestTaskRunner("t3", "test3", 2)
+	t1.GetTask().AddChildren(t2, t3)
+	// create scheduler that doesnt print to standard out
+	test_scheduler, err := NewTaskScheduler(t1, true)
+	if err != nil {
+		t.Errorf("Received error from task scheduler %v", err)
+	}
+	test_scheduler.Start()
+	first_scheduler_uuid := test_scheduler.uuid.String()
+
+	revived_test1 := TestTask{}
+	revived_test2 := TestTask{}
+	revived_test3 := TestTask{}
+	revived_test3.AddChildren(revived_test1, revived_test2)
+	ReCreateStoredDag(revived_test3, first_scheduler_uuid)
+
+	if !AreTaskDagsEqual(t1, revived_test3) {
+		t.Errorf("Task dags were not equal, recreation of stored dag failed")
+	}
 
 }
