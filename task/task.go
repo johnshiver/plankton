@@ -19,6 +19,12 @@ type TaskRunner interface {
 	GetTask() *Task
 }
 
+// compares two task runners and returns whether or not they are equal in plankton terms
+func CompareTaskRunners(runner1, runner2 TaskRunner) bool {
+	return true
+
+}
+
 // TODO: add docs
 type Task struct {
 	Name           string

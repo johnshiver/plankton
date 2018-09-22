@@ -9,6 +9,7 @@ import (
 	"github.com/jinzhu/gorm"
 	_ "github.com/jinzhu/gorm/dialects/postgres"
 	uuid "github.com/nu7hatch/gouuid"
+	"github.com/phf/go-queue/queue"
 
 	"github.com/johnshiver/plankton/config"
 	"github.com/johnshiver/plankton/task"
@@ -142,7 +143,26 @@ func (ts *TaskScheduler) getDAGState() string {
 }
 
 func AreTaskDagsEqual(task_dag1, task_dag2 task.TaskRunner) bool {
-	return false
+
+	type TaskRunnerDepth struct {
+		runner task.TaskRunner
+		depth  int
+	}
+
+	// conduct BFS on task_dag1 and task_dag2
+	//
+	runner_q := queue.New()
+	runner_q.PushBack(TaskRunnerDepth{task_dag1, 1})
+
+	for !runner_q.empty() {
+
+	}
+
+	if !task.CompareTaskRunners(task_dag1, task_dag2) {
+		return false
+	}
+
+	return true
 }
 
 /*
