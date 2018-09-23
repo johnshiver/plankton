@@ -4,7 +4,6 @@ import (
 	"os"
 	"testing"
 
-	"github.com/davecgh/go-spew/spew"
 	"github.com/johnshiver/plankton/config"
 	"github.com/johnshiver/plankton/task"
 )
@@ -166,25 +165,17 @@ func TestCompareTwoTaskDagsForEquality(t *testing.T) {
 
 	if !AreTaskDagsEqual(t3, t6) {
 		t.Errorf("Tasks dags werent equal, equality check failed")
-		spew.Dump(t3)
-		spew.Dump(t4)
 	}
 
 	if AreTaskDagsEqual(t3, t9) {
 		t.Errorf("Tasks dags should NOT have been equal, different task names")
-		spew.Dump(t3)
-		spew.Dump(t9)
 	}
 
 	if AreTaskDagsEqual(t3, t12) {
 		t.Errorf("Tasks dags should NOT have been equal, different string params")
-		spew.Dump(t3)
-		spew.Dump(t12)
 	}
 	if AreTaskDagsEqual(t3, t15) {
 		t.Errorf("Tasks dags should NOT have been equal, different int params")
-		spew.Dump(t3)
-		spew.Dump(t15)
 	}
 
 }

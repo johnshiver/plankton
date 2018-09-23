@@ -2,6 +2,7 @@ package scheduler
 
 import (
 	"fmt"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -142,24 +143,73 @@ func (ts *TaskScheduler) getDAGState() string {
 	return strings.Join(dag_state_strings, "\n")
 }
 
-func AreTaskDagsEqual(task_dag1, task_dag2 task.TaskRunner) bool {
+type TaskRunnerDepth struct {
+	runner task.TaskRunner
+	depth  int
+}
 
-	type TaskRunnerDepth struct {
-		runner task.TaskRunner
-		depth  int
-	}
+// TODO: write function to sort task runner depths by depth, then runner hash
+
+func AreTaskDagsEqual(task_dag1, task_dag2 task.TaskRunner) bool {
 
 	// conduct BFS on task_dag1 and task_dag2
 	//
+	task_dag1_runner_levels := []TaskRunnerDepth{}
 	runner_q := queue.New()
 	runner_q.PushBack(TaskRunnerDepth{task_dag1, 1})
-
-	for !runner_q.empty() {
-
+	for runner_q.Len() > 0 {
+		curr := runner_q.PopFront().(TaskRunnerDepth)
+		task.CreateAndSetTaskParams(curr.runner)
+		task_dag1_runner_levels = append(task_dag1_runner_levels, curr)
+		for _, child := range curr.runner.GetTask().Children {
+			runner_q.PushBack(TaskRunnerDepth{child, curr.depth + 1})
+		}
 	}
 
-	if !task.CompareTaskRunners(task_dag1, task_dag2) {
-		return false
+	// TODO: combine sorting methods to use one interface
+	sort.Slice(task_dag1_runner_levels, func(i, j int) bool {
+		if task_dag1_runner_levels[i].depth < task_dag1_runner_levels[j].depth {
+			return true
+		}
+		if task_dag1_runner_levels[i].depth > task_dag1_runner_levels[j].depth {
+			return false
+		}
+		return task_dag1_runner_levels[i].runner.GetTask().GetHash() < task_dag1_runner_levels[j].runner.GetTask().GetHash()
+	})
+
+	task_dag2_runner_levels := []TaskRunnerDepth{}
+	runner_q = queue.New()
+	runner_q.PushBack(TaskRunnerDepth{task_dag2, 1})
+	for runner_q.Len() > 0 {
+		curr := runner_q.PopFront().(TaskRunnerDepth)
+		task.CreateAndSetTaskParams(curr.runner)
+		task_dag2_runner_levels = append(task_dag2_runner_levels, curr)
+		for _, child := range curr.runner.GetTask().Children {
+			runner_q.PushBack(TaskRunnerDepth{child, curr.depth + 1})
+		}
+	}
+
+	sort.Slice(task_dag2_runner_levels, func(i, j int) bool {
+		if task_dag2_runner_levels[i].depth < task_dag2_runner_levels[j].depth {
+			return true
+		}
+		if task_dag2_runner_levels[i].depth > task_dag2_runner_levels[j].depth {
+			return false
+		}
+		return task_dag2_runner_levels[i].runner.GetTask().GetHash() < task_dag2_runner_levels[j].runner.GetTask().GetHash()
+	})
+
+	for i := 0; i < len(task_dag1_runner_levels); i++ {
+		if i > len(task_dag2_runner_levels) {
+			return false
+		}
+
+		r1 := task_dag1_runner_levels[i]
+		r2 := task_dag2_runner_levels[i]
+
+		if !(r1.runner.GetTask().GetHash() == r2.runner.GetTask().GetHash()) {
+			return false
+		}
 	}
 
 	return true
