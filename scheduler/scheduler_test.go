@@ -193,14 +193,24 @@ func TestRecreateStoredDag(t *testing.T) {
 	test_scheduler.Start()
 	first_scheduler_uuid := test_scheduler.uuid.String()
 
-	revived_test1 := createTestTaskRunner("", "", 0)
-	revived_test2 := createTestTaskRunner("", "", 0)
-	revived_test3 := createTestTaskRunner("", "", 0)
+	revived_test1 := createTestTaskRunner("t1", "", 0)
+	revived_test2 := createTestTaskRunner("t2", "", 0)
+	revived_test3 := createTestTaskRunner("t3", "", 0)
 	revived_test3.AddChildren(revived_test1, revived_test2)
-	ReCreateStoredDag(revived_test3, first_scheduler_uuid)
+
+	if AreTaskDagsEqual(t1, revived_test3) {
+		t.Errorf("Task dags are equal, something went wrong")
+	}
+
+	err = ReCreateStoredDag(revived_test3, first_scheduler_uuid)
+	if err != nil {
+		t.Error(err)
+	}
 
 	if !AreTaskDagsEqual(t1, revived_test3) {
 		t.Errorf("Task dags were not equal, recreation of stored dag failed")
+		//spew.Dump(revived_test3)
+		//spew.Dump(first_scheduler_uuid)
 	}
 
 }

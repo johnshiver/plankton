@@ -7,6 +7,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/davecgh/go-spew/spew"
 	"github.com/jinzhu/gorm"
 	_ "github.com/jinzhu/gorm/dialects/postgres"
 	uuid "github.com/nu7hatch/gouuid"
@@ -215,12 +216,60 @@ func AreTaskDagsEqual(task_dag1, task_dag2 task.TaskRunner) bool {
 	return true
 }
 
+type TaskRunnerParentHash struct {
+	runner      task.TaskRunner
+	parent_hash string
+}
+
 /*
 re runs previously scheduled task dag.  all tasks in a task dag runn share a scheduler uuid
 
 which is the expected input.  root_dag
 */
-func ReCreateStoredDag(root_dag task.TaskRunner, scheduler_uuid string) {
+func ReCreateStoredDag(root_dag task.TaskRunner, scheduler_uuid string) error {
+	// TODO: hashes are only correct from the bottom up, because child params
+	//       are taken into account
+
+	var records []PlanktonRecord
+	test_config.DataBase.Where("scheduler_uuid = ?", scheduler_uuid).Find(&records)
+	if len(records) < 1 {
+		return fmt.Errorf("No records for task dag %s", scheduler_uuid)
+	}
+
+	runner_q := queue.New()
+	runner_q.PushBack(TaskRunnerParentHash{root_dag, ""})
+	var curr TaskRunnerParentHash
+	var task_record_to_restore PlanktonRecord
+	var found bool
+	for runner_q.Len() > 0 {
+		curr = runner_q.PopFront().(TaskRunnerParentHash)
+
+		// incase it was already initalized
+		found = false
+		for i, record := range records {
+			if record.ParentHash == curr.parent_hash {
+				task_record_to_restore = record
+				records = append(records[:i], records[i+1:]...)
+				found = true
+				break
+			}
+		}
+
+		if !found {
+			spew.Dump(records)
+			spew.Dump(curr)
+			return fmt.Errorf("couldnt find a plankton record to restore to dag")
+		}
+
+		task.CreateAndSetTaskParamsFromHash(curr.runner, task_record_to_restore.TaskParams)
+		for _, child := range curr.runner.GetTask().Children {
+			child.GetTask().Parent = curr.runner
+			runner_q.PushBack(TaskRunnerParentHash{child, curr.runner.GetTask().GetHash()})
+		}
+
+	}
+
+	return nil
 
 }
 

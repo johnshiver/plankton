@@ -19,12 +19,6 @@ type TaskRunner interface {
 	GetTask() *Task
 }
 
-// compares two task runners and returns whether or not they are equal in plankton terms
-func CompareTaskRunners(runner1, runner2 TaskRunner) bool {
-	return true
-
-}
-
 // TODO: add docs
 type Task struct {
 	Name           string
@@ -254,6 +248,10 @@ func CreateTaskRunnerFromParams(tr TaskRunner, params []*TaskParam) error {
 }
 
 func CreateAndSetTaskParamsFromHash(tr TaskRunner, param_hash string) error {
+	if tr.GetTask() == nil {
+		return fmt.Errorf("tr %v didnt have task set", tr)
+	}
+
 	task_params, err := DeserializeTaskParams(param_hash)
 	if err != nil {
 		return err
@@ -264,6 +262,7 @@ func CreateAndSetTaskParamsFromHash(tr TaskRunner, param_hash string) error {
 		return err
 	}
 
+	CreateAndSetTaskParams(tr)
 	return nil
 
 }

@@ -248,13 +248,17 @@ func TestCreateParamFromSerializedParam(t *testing.T) {
 func TestCreateTaskRunnerFromHash(t *testing.T) {
 	// TODO: add string param
 	serialized_task_param1 := "N:INT:5_X:STR:HEYA"
-	test_1 := TestTask{}
-	_ = CreateAndSetTaskParamsFromHash(&test_1, serialized_task_param1)
+	test_1 := createTestTaskRunner("test1", 0)
+	_ = CreateAndSetTaskParamsFromHash(test_1, serialized_task_param1)
 	if test_1.N != 5 {
 		t.Errorf("Failed to set N on test struct %d", test_1.N)
 	}
 	if test_1.X != "HEYA" {
 		t.Errorf("Failed to set X on test struct %s", test_1.X)
+	}
+	if test_1.GetSerializedParams() != serialized_task_param1 {
+		t.Errorf("Serialized params dont match restored task runner params, %s -> %s", test_1.GetSerializedParams(), serialized_task_param1)
+
 	}
 
 }
