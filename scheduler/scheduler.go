@@ -255,8 +255,10 @@ func ReCreateStoredDag(root_dag task.TaskRunner, scheduler_uuid string) error {
 			}
 		}
 
+		// NOTE: it might be good to allow for re-creations that have extra tasks, i.e.
+		//       you add a new task and want to re-run this dag
 		if !found {
-			return fmt.Errorf("couldnt find a plankton record to restore to dag")
+			return fmt.Errorf("couldnt find a plankton record to restore to dag, check that your dag is correct")
 		}
 
 		task.CreateAndSetTaskParamsFromHash(curr.Runner, task_record_to_restore.TaskParams)
