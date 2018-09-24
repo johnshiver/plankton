@@ -7,7 +7,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/davecgh/go-spew/spew"
 	"github.com/jinzhu/gorm"
 	_ "github.com/jinzhu/gorm/dialects/postgres"
 	uuid "github.com/nu7hatch/gouuid"
@@ -216,9 +215,9 @@ func AreTaskDagsEqual(task_dag1, task_dag2 task.TaskRunner) bool {
 	return true
 }
 
-type TaskRunnerParentHash struct {
-	runner      task.TaskRunner
-	parent_hash string
+type TaskRunnerParentRecord struct {
+	Runner       task.TaskRunner
+	ParentRecord PlanktonRecord
 }
 
 /*
@@ -237,18 +236,19 @@ func ReCreateStoredDag(root_dag task.TaskRunner, scheduler_uuid string) error {
 	}
 
 	runner_q := queue.New()
-	runner_q.PushBack(TaskRunnerParentHash{root_dag, ""})
-	var curr TaskRunnerParentHash
+	runner_q.PushBack(TaskRunnerParentRecord{root_dag, PlanktonRecord{}})
+	var curr TaskRunnerParentRecord
 	var task_record_to_restore PlanktonRecord
 	var found bool
 	for runner_q.Len() > 0 {
-		curr = runner_q.PopFront().(TaskRunnerParentHash)
+		curr = runner_q.PopFront().(TaskRunnerParentRecord)
 
 		// incase it was already initalized
 		found = false
 		for i, record := range records {
-			if record.ParentHash == curr.parent_hash {
+			if record.ParentHash == curr.ParentRecord.TaskHash {
 				task_record_to_restore = record
+				// remove record from records list...we wont use it again
 				records = append(records[:i], records[i+1:]...)
 				found = true
 				break
@@ -256,15 +256,15 @@ func ReCreateStoredDag(root_dag task.TaskRunner, scheduler_uuid string) error {
 		}
 
 		if !found {
-			spew.Dump(records)
-			spew.Dump(curr)
 			return fmt.Errorf("couldnt find a plankton record to restore to dag")
 		}
 
-		task.CreateAndSetTaskParamsFromHash(curr.runner, task_record_to_restore.TaskParams)
-		for _, child := range curr.runner.GetTask().Children {
-			child.GetTask().Parent = curr.runner
-			runner_q.PushBack(TaskRunnerParentHash{child, curr.runner.GetTask().GetHash()})
+		task.CreateAndSetTaskParamsFromHash(curr.Runner, task_record_to_restore.TaskParams)
+		curr.Runner.GetTask().Name = task_record_to_restore.TaskName
+		for _, child := range curr.Runner.GetTask().Children {
+			// TODO: do we need to set parent here? will be set when it's run by scheduler
+			child.GetTask().Parent = curr.Runner
+			runner_q.PushBack(TaskRunnerParentRecord{child, task_record_to_restore})
 		}
 
 	}
