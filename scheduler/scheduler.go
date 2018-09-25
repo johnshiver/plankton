@@ -230,7 +230,8 @@ func ReCreateStoredDag(root_dag task.TaskRunner, scheduler_uuid string) error {
 	//       are taken into account
 
 	var records []PlanktonRecord
-	test_config.DataBase.Where("scheduler_uuid = ?", scheduler_uuid).Find(&records)
+	c := config.GetConfig()
+	c.DataBase.Where("scheduler_uuid = ?", scheduler_uuid).Find(&records)
 	if len(records) < 1 {
 		return fmt.Errorf("No records for task dag %s", scheduler_uuid)
 	}
