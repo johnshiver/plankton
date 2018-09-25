@@ -4,7 +4,7 @@ sudo: true
 language: go
 
 go:
-  - 1.9.x
+  - 1.10.x
   - 1.x
 
 # Only clone the most recent commit.
