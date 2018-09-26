@@ -27,9 +27,11 @@ type Task struct {
 	ResultsChannel chan string
 	State          string
 	Params         []*TaskParam
-	Start          time.Time
-	End            time.Time
+	ProcessStart   time.Time
+	ProcessEnd     time.Time
 	DataProcessed  int
+	Beginning      string `task_param:""`
+	End            string `task_param:""`
 }
 
 type TaskParam struct {
@@ -49,6 +51,8 @@ func NewTask(name string) *Task {
 		State:          "waiting",
 		Params:         []*TaskParam{},
 		DataProcessed:  0,
+		Beginning:      "haha",
+		End:            "eat my shorts",
 	}
 }
 
@@ -192,8 +196,23 @@ func CreateAndSetTaskParams(tr TaskRunner) ([]*TaskParam, error) {
 		}
 	}
 
+	builtIns := getBuiltinParams(tr)
+
 	tr.GetTask().Params = task_params
+	for _, builtin := range builtIns {
+		tr.GetTask().Params = append(tr.GetTask().Params, &builtin)
+	}
 	return tr.GetTask().Params, nil
+}
+
+func getBuiltinParams(tr TaskRunner) []TaskParam {
+	BeginningParam := TaskParam{
+		Name: "Beginning",
+		Data: getFieldValue(tr, "Beginning"),
+	}
+	return []TaskParam{
+		BeginningParam,
+	}
 }
 
 func getFieldValue(tr TaskRunner, field_name string) reflect.Value {
@@ -305,17 +324,13 @@ func (ts *Task) SetState(new_state string) (string, error) {
 func RunTaskRunner(tsk_runner TaskRunner, wg *sync.WaitGroup) {
 	// TODO: add that failsafe i read in rob fig's cron project
 	defer wg.Done()
-	tsk_runner.GetTask().SetState("running")
-	fmt.Printf("Running Task: %s\n", tsk_runner.GetTask().Name)
 
 	runner_children := tsk_runner.GetTask().Children
 	if len(runner_children) > 0 {
-		for _, child := range runner_children {
-			child.GetTask().Parent = tsk_runner
-		}
 
 		parent_wg := &sync.WaitGroup{}
 		for _, child := range runner_children {
+			child.GetTask().Parent = tsk_runner
 			parent_wg.Add(1)
 			go RunTaskRunner(child, parent_wg)
 		}
@@ -325,10 +340,12 @@ func RunTaskRunner(tsk_runner TaskRunner, wg *sync.WaitGroup) {
 			close(tsk_runner.GetTask().ResultsChannel)
 		}()
 	}
-	tsk_runner.GetTask().Start = time.Now()
+	tsk_runner.GetTask().ProcessStart = time.Now()
+	tsk_runner.GetTask().SetState("running")
+	fmt.Printf("Running Task: %s\n", tsk_runner.GetTask().Name)
 	tsk_runner.Run()
 	tsk_runner.GetTask().SetState("complete")
-	tsk_runner.GetTask().End = time.Now()
+	tsk_runner.GetTask().ProcessEnd = time.Now()
 }
 
 // TODO: do a better job detecting the D part

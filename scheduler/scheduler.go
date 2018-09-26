@@ -117,9 +117,9 @@ func (ts *TaskScheduler) getDAGState() string {
 		task_queue = task_queue[1:]
 		var running_time time.Duration
 		if curr.State == "complete" {
-			running_time = curr.End.Sub(curr.Start)
+			running_time = curr.ProcessEnd.Sub(curr.ProcessStart)
 		} else {
-			running_time = time.Now().Sub(curr.Start)
+			running_time = time.Now().Sub(curr.ProcessStart)
 		}
 
 		curr_state := fmt.Sprintf("\t %s", curr.State)
@@ -306,7 +306,7 @@ func (ts *TaskScheduler) recordDAGRun() {
 	for len(task_queue) > 0 {
 		curr := task_queue[0]
 		task_queue = task_queue[1:]
-		execution_time := curr.End.Sub(curr.Start)
+		execution_time := curr.ProcessEnd.Sub(curr.ProcessStart)
 
 		var parent_hash string
 		if curr.Parent != nil {
