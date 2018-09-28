@@ -311,21 +311,13 @@ func (ts *Task) SetState(new_state string) (string, error) {
 func RunTaskRunner(tRunner TaskRunner, wg *sync.WaitGroup, TokenReturn chan struct{}) {
 	// TODO: add that failsafe i read in rob fig's cron project
 	defer wg.Done()
-	tsk_runner.GetTask().SetState("running")
-	fmt.Printf("Running Task: %s\n", tsk_runner.GetTask().Name)
 
 	runner_children := tRunner.GetTask().Children
 	if len(runner_children) > 0 {
-		for _, child := range runner_children {
-			child.GetTask().Parent = tsk_runner
-		}
 
 		parent_wg := &sync.WaitGroup{}
 		for _, child := range runner_children {
-<<<<<<< Updated upstream
-=======
 			child.GetTask().Parent = tRunner
->>>>>>> Stashed changes
 			parent_wg.Add(1)
 			go RunTaskRunner(child, parent_wg, TokenReturn)
 		}
@@ -335,31 +327,40 @@ func RunTaskRunner(tRunner TaskRunner, wg *sync.WaitGroup, TokenReturn chan stru
 			close(tRunner.GetTask().ResultsChannel)
 		}()
 	}
-<<<<<<< Updated upstream
-	tsk_runner.GetTask().Start = time.Now()
-	tsk_runner.Run()
-	tsk_runner.GetTask().SetState("complete")
-	tsk_runner.GetTask().End = time.Now()
-=======
 
 	done := false
 	var token struct{}
 	for !done {
 		select {
 		case token = <-tRunner.GetTask().WorkerTokens:
-			tRunner.GetTask().ProcessStart = time.Now()
+			tRunner.GetTask().Start = time.Now()
 			tRunner.GetTask().SetState("running")
 			fmt.Printf("Running Task: %s\n", tRunner.GetTask().Name)
 			tRunner.Run()
 			tRunner.GetTask().SetState("complete")
-			tRunner.GetTask().ProcessEnd = time.Now()
+			tRunner.GetTask().End = time.Now()
 			TokenReturn <- token
 			done = true
 		}
 
 	}
 
->>>>>>> Stashed changes
+}
+
+func SetTaskPriorities(rootTask *Task) {
+	curr := 0
+
+	var setTaskPriorities func(root *Task)
+	setTaskPriorities = func(root *Task) {
+		for _, child := range root.Children {
+			setTaskPriorities(child.GetTask())
+		}
+		root.Priority = curr
+		curr += 1
+	}
+
+	setTaskPriorities(rootTask)
+
 }
 
 // TODO: do a better job detecting the D part

@@ -18,23 +18,17 @@ import (
 
 type TaskScheduler struct {
 	root_runner task.TaskRunner
-	// TODO: create a method that returns the uuid string, as that is how it's being consumed
-	uuid       *uuid.UUID
-	record_run bool
-	nodes      []task.TaskRunner
-
-	// TODO: if i set params here, would be nice to automatically set those on all
-	//       tasks in the dag
-
-	// TODO: ensure that all tasks in DAG share the same params
+	uuid        *uuid.UUID
+	record_run  bool
+	nodes       []task.TaskRunner
 }
 
-func NewTaskScheduler(task_runner task.TaskRunner, record_run bool) (*TaskScheduler, error) {
+func NewTaskScheduler(root_runner task.TaskRunner, record_run bool) (*TaskScheduler, error) {
 
-	// set task params
+	// set task params on runner DAG and create list of all task runners
 	schedulerNodes := []task.TaskRunner{}
 	task_queue := []task.TaskRunner{}
-	task_queue = append(task_queue, task_runner)
+	task_queue = append(task_queue, root_runner)
 	for len(task_queue) > 0 {
 		curr := task_queue[0]
 		schedulerNodes = append(schedulerNodes, curr)
@@ -45,27 +39,32 @@ func NewTaskScheduler(task_runner task.TaskRunner, record_run bool) (*TaskSchedu
 		}
 	}
 
-	dag_is_good := task.VerifyDAG(task_runner.GetTask())
+	dag_is_good := task.VerifyDAG(root_runner.GetTask())
 	if !dag_is_good {
 		return nil, fmt.Errorf("Root task runner isnt a valid Task DAG\n")
 	}
 
-	// TODO: set task priorities using topological dfs
-
+	task.SetTaskPriorities(root_runner.GetTask())
 	sort.Slice(schedulerNodes, func(i, j int) bool {
 		return schedulerNodes[i].GetTask().Priority < schedulerNodes[j].GetTask().Priority
 	})
+
+	for _, node := range schedulerNodes {
+		fmt.Println(node.GetTask().Name)
+		fmt.Println(node.GetTask().Priority)
+	}
 
 	schedueler_uuid, err := uuid.NewV4()
 	if err != nil {
 		panic("Failed to create uuid for scheduler")
 	}
 	return &TaskScheduler{
-		root_runner: task_runner,
+		root_runner: root_runner,
 		uuid:        schedueler_uuid,
 		record_run:  record_run,
 		nodes:       schedulerNodes}, nil
 }
+
 func (ts *TaskScheduler) PrintDAGState() {
 	// clears the terminal. might not to add functionality to support other systems
 	// https://stackoverflow.com/questions/22891644/how-can-i-clear-the-terminal-screen-in-go
@@ -80,7 +79,8 @@ func (ts *TaskScheduler) PrintDAGState() {
 
 // starts the root_runner
 func (ts *TaskScheduler) Start() {
-	concurrencyLimit := len(ts.nodes)
+	//	concurrencyLimit := len(ts.nodes)
+	concurrencyLimit := 3
 	workerTokens := []struct{}{}
 
 	for i := 0; i < concurrencyLimit; i++ {
@@ -114,7 +114,7 @@ func (ts *TaskScheduler) Start() {
 			fmt.Println("Finished!")
 			done = true
 		case returnedToken := <-tokenReturn:
-			if taskPriority < len(ts.nodes)-1 {
+			if taskPriority < len(ts.nodes) {
 				ts.nodes[taskPriority].GetTask().WorkerTokens <- returnedToken
 				taskPriority += 1
 			}
