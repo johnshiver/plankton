@@ -14,7 +14,10 @@ import (
 
 type TaskRunner interface {
 	// NOTE: Run() should always be called by RunTaskRunner
+
+	// TODO: have Run() return an error, which could be given to scheduler
 	Run()
+
 	// requires TaskRuner to have an embedded Task
 	GetTask() *Task
 }
@@ -25,7 +28,9 @@ type Task struct {
 	Children       []TaskRunner
 	Parent         TaskRunner
 	ResultsChannel chan string
+	WorkerTokens   chan struct{}
 	State          string
+	Priority       int
 	Params         []*TaskParam
 	Start          time.Time
 	End            time.Time
@@ -46,6 +51,8 @@ func NewTask(name string) *Task {
 		Children:       []TaskRunner{},
 		Parent:         nil,
 		ResultsChannel: make(chan string, 10000),
+		WorkerTokens:   make(chan struct{}, 20), // TODO set config concurrencylimit
+		Priority:       -1,
 		State:          "waiting",
 		Params:         []*TaskParam{},
 		DataProcessed:  0,
@@ -72,8 +79,7 @@ func (ts *Task) GetHash() string {
 
 /*
    Given a Task, return a serialized string to represent it.
-
-   This is useful for storing the state of each Task that is run in the dag, and can
+This is useful for storing the state of each Task that is run in the dag, and can
    be used to re-create a previously run task for DAG re-runs, backfills, or some other
    use case.
 
@@ -302,13 +308,13 @@ func (ts *Task) SetState(new_state string) (string, error) {
 }
 
 // Runs a TaskRunner, sets state and notifies waiting group when run is done
-func RunTaskRunner(tsk_runner TaskRunner, wg *sync.WaitGroup) {
+func RunTaskRunner(tRunner TaskRunner, wg *sync.WaitGroup, TokenReturn chan struct{}) {
 	// TODO: add that failsafe i read in rob fig's cron project
 	defer wg.Done()
 	tsk_runner.GetTask().SetState("running")
 	fmt.Printf("Running Task: %s\n", tsk_runner.GetTask().Name)
 
-	runner_children := tsk_runner.GetTask().Children
+	runner_children := tRunner.GetTask().Children
 	if len(runner_children) > 0 {
 		for _, child := range runner_children {
 			child.GetTask().Parent = tsk_runner
@@ -316,19 +322,44 @@ func RunTaskRunner(tsk_runner TaskRunner, wg *sync.WaitGroup) {
 
 		parent_wg := &sync.WaitGroup{}
 		for _, child := range runner_children {
+<<<<<<< Updated upstream
+=======
+			child.GetTask().Parent = tRunner
+>>>>>>> Stashed changes
 			parent_wg.Add(1)
-			go RunTaskRunner(child, parent_wg)
+			go RunTaskRunner(child, parent_wg, TokenReturn)
 		}
 
 		go func() {
 			parent_wg.Wait()
-			close(tsk_runner.GetTask().ResultsChannel)
+			close(tRunner.GetTask().ResultsChannel)
 		}()
 	}
+<<<<<<< Updated upstream
 	tsk_runner.GetTask().Start = time.Now()
 	tsk_runner.Run()
 	tsk_runner.GetTask().SetState("complete")
 	tsk_runner.GetTask().End = time.Now()
+=======
+
+	done := false
+	var token struct{}
+	for !done {
+		select {
+		case token = <-tRunner.GetTask().WorkerTokens:
+			tRunner.GetTask().ProcessStart = time.Now()
+			tRunner.GetTask().SetState("running")
+			fmt.Printf("Running Task: %s\n", tRunner.GetTask().Name)
+			tRunner.Run()
+			tRunner.GetTask().SetState("complete")
+			tRunner.GetTask().ProcessEnd = time.Now()
+			TokenReturn <- token
+			done = true
+		}
+
+	}
+
+>>>>>>> Stashed changes
 }
 
 // TODO: do a better job detecting the D part

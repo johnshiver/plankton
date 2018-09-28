@@ -21,6 +21,7 @@ type TaskScheduler struct {
 	// TODO: create a method that returns the uuid string, as that is how it's being consumed
 	uuid       *uuid.UUID
 	record_run bool
+	nodes      []task.TaskRunner
 
 	// TODO: if i set params here, would be nice to automatically set those on all
 	//       tasks in the dag
@@ -31,10 +32,12 @@ type TaskScheduler struct {
 func NewTaskScheduler(task_runner task.TaskRunner, record_run bool) (*TaskScheduler, error) {
 
 	// set task params
+	schedulerNodes := []task.TaskRunner{}
 	task_queue := []task.TaskRunner{}
 	task_queue = append(task_queue, task_runner)
 	for len(task_queue) > 0 {
 		curr := task_queue[0]
+		schedulerNodes = append(schedulerNodes, curr)
 		task_queue = task_queue[1:]
 		task.CreateAndSetTaskParams(curr)
 		for _, child := range curr.GetTask().Children {
@@ -46,11 +49,22 @@ func NewTaskScheduler(task_runner task.TaskRunner, record_run bool) (*TaskSchedu
 	if !dag_is_good {
 		return nil, fmt.Errorf("Root task runner isnt a valid Task DAG\n")
 	}
+
+	// TODO: set task priorities using topological dfs
+
+	sort.Slice(schedulerNodes, func(i, j int) bool {
+		return schedulerNodes[i].GetTask().Priority < schedulerNodes[j].GetTask().Priority
+	})
+
 	schedueler_uuid, err := uuid.NewV4()
 	if err != nil {
 		panic("Failed to create uuid for scheduler")
 	}
-	return &TaskScheduler{root_runner: task_runner, uuid: schedueler_uuid, record_run: record_run}, nil
+	return &TaskScheduler{
+		root_runner: task_runner,
+		uuid:        schedueler_uuid,
+		record_run:  record_run,
+		nodes:       schedulerNodes}, nil
 }
 func (ts *TaskScheduler) PrintDAGState() {
 	// clears the terminal. might not to add functionality to support other systems
@@ -66,10 +80,17 @@ func (ts *TaskScheduler) PrintDAGState() {
 
 // starts the root_runner
 func (ts *TaskScheduler) Start() {
+	concurrencyLimit := len(ts.nodes)
+	workerTokens := []struct{}{}
 
+	for i := 0; i < concurrencyLimit; i++ {
+		workerTokens = append(workerTokens, struct{}{})
+	}
+
+	tokenReturn := make(chan struct{})
 	scheduler_wg := &sync.WaitGroup{}
 	scheduler_wg.Add(1)
-	go task.RunTaskRunner(ts.root_runner, scheduler_wg)
+	go task.RunTaskRunner(ts.root_runner, scheduler_wg, tokenReturn)
 
 	finished := make(chan struct{})
 	go func() {
@@ -77,9 +98,11 @@ func (ts *TaskScheduler) Start() {
 		finished <- struct{}{}
 	}()
 
-	// TODO: can i make a global 'results' channel that i can
-	// hook into every task that is made, then access from
-	// the schduler to get results
+	taskPriority := 0
+	for _, wToken := range workerTokens {
+		ts.nodes[taskPriority].GetTask().WorkerTokens <- wToken
+		taskPriority += 1
+	}
 
 	ticker := time.NewTicker(time.Millisecond * 200)
 	done := false
@@ -90,6 +113,11 @@ func (ts *TaskScheduler) Start() {
 		case <-finished:
 			fmt.Println("Finished!")
 			done = true
+		case returnedToken := <-tokenReturn:
+			if taskPriority < len(ts.nodes)-1 {
+				ts.nodes[taskPriority].GetTask().WorkerTokens <- returnedToken
+				taskPriority += 1
+			}
 		}
 	}
 	ts.PrintDAGState()
