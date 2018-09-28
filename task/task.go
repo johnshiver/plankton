@@ -223,17 +223,17 @@ func getFieldValue(tr TaskRunner, field_name string) reflect.Value {
 
 }
 
-// Given Params and a TaskRunner, sets all TaskRunner fields marked as param
-// Note: The struct satisfying the TaskRunner interface MUST be passed to this function
-// as a reference.  See these articles for a more thorough explanation:
-// https://stackoverflow.com/questions/6395076/using-reflect-how-do-you-set-the-value-of-a-struct-field
-// http://speakmy.name/2014/09/14/modifying-interfaced-go-struct/
 func CreateTaskRunnerFromParams(tr TaskRunner, params []*TaskParam) error {
+	/*
 
-	// TODO: change name of this Function.  It doesnt really create a task runner so much
-	//       as fill in param values on an existing TaskRunner
+	   Given Params and a TaskRunner, sets all TaskRunner fields marked as param
+	   Note: The struct satisfying the TaskRunner interface MUST be passed to this function
+	   as a reference.  See these articles for a more thorough explanation:
+	   https://stackoverflow.com/questions/6395076/using-reflect-how-do-you-set-the-value-of-a-struct-field
+	   http://speakmy.name/2014/09/14/modifying-interfaced-go-struct/
 
-	// TODO: make this var name consistent with the one used above
+	*/
+
 	stype := reflect.ValueOf(tr).Elem()
 
 	param_name_value_map := map[string]reflect.Value{}
