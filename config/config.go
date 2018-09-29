@@ -11,7 +11,11 @@ import (
 	"github.com/spf13/viper"
 )
 
+// TODO: make this concurrency safe / dont let writes happen out of this module
+
 var c Config
+
+const DEFAULT_CONCURRENCY_LIMIT = 4
 
 var TEST_SQLITE_DATABASE = DatabaseConfig{
 	Type: "sqlite3",
@@ -24,8 +28,9 @@ var DEFAULT_SQLITE_DATABASE = DatabaseConfig{
 }
 
 type Config struct {
-	DataBase *gorm.DB
-	DBConfig DatabaseConfig
+	DataBase         *gorm.DB
+	DBConfig         DatabaseConfig
+	ConcurrencyLimit int
 }
 
 type DatabaseConfig struct {
@@ -38,13 +43,7 @@ func init() {
 	viper.SetConfigName("config")
 	viper.AddConfigPath("/etc/plankton")
 	viper.AddConfigPath(".")
-	/*
-			initalize config
-		        from yaml, get the database config (for now sqlite or postgres)
-			then determine if the connection string is valid
-	*/
 	ReadAndSetConfig()
-
 }
 
 func GetConfig() Config {
@@ -54,24 +53,29 @@ func GetConfig() Config {
 	return c
 }
 
-// TODO should change this function name, Read / Set
 func ReadAndSetConfig() {
 	err := viper.ReadInConfig()
 	log.Printf("Using configuration file: %s\n", viper.ConfigFileUsed())
 
+	// config file didnt work, use defaults
 	if err != nil {
 		log.Println(err.Error())
 		log.Println("Using default sqlite db")
 		SetDatabaseConfig(DEFAULT_SQLITE_DATABASE)
-	} else {
-
-		database_type := viper.GetString("database_type")
-		database_host := viper.GetString("database_host")
-		SetDatabaseConfig(DatabaseConfig{
-			Type: database_type,
-			Host: database_host,
-		})
+		c.ConcurrencyLimit = DEFAULT_CONCURRENCY_LIMIT
+		return
 	}
+	concurrencyLimit := viper.GetInt("concurrencyLimit")
+	if concurrencyLimit < 1 {
+		concurrencyLimit = DEFAULT_CONCURRENCY_LIMIT
+	}
+	c.ConcurrencyLimit = concurrencyLimit
+	databaseType := viper.GetString("databaseType")
+	databaseHost := viper.GetString("databaseHost")
+	SetDatabaseConfig(DatabaseConfig{
+		Type: databaseType,
+		Host: databaseHost,
+	})
 
 }
 
@@ -83,6 +87,7 @@ func SetDatabaseConfig(db_config DatabaseConfig) {
 	}
 
 	if err := db.DB().Ping(); err != nil {
+		log.Fatal("Error connecting to database")
 		log.Fatal(err)
 		os.Exit(1)
 	}

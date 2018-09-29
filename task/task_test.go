@@ -76,7 +76,7 @@ func TestVerifyDAG(t *testing.T) {
 		{bad_dag.GetTask(), false},
 	}
 	for _, test := range tests {
-		if output := VerifyDAG(test.input); output != test.want {
+		if output := verifyDAG(test.input); output != test.want {
 			t.Errorf("VerifyDAG(%v) = %v", test.input, output)
 		}
 	}
@@ -261,4 +261,31 @@ func TestCreateTaskRunnerFromHash(t *testing.T) {
 
 	}
 
+}
+
+func TestSetTaskPriorities(t *testing.T) {
+	test1 := createTestTaskRunner("test1", 0)
+	test2 := createTestTaskRunner("test2", 0)
+	test3 := createTestTaskRunner("test3", 0)
+
+	test1.AddChildren(test2)
+	test2.AddChildren(test3)
+
+	err := SetTaskPriorities(test1.GetTask())
+	if err != nil {
+		t.Error(err)
+	}
+	var tests = []struct {
+		input            TaskRunner
+		expectedPriority int
+	}{
+		{test1, 2},
+		{test2, 1},
+		{test3, 0},
+	}
+	for _, test := range tests {
+		if test.input.GetTask().Priority != test.expectedPriority {
+			t.Errorf("TestTaskRunner %s had priority %d but we expected %d", test.input.GetTask().Name, test.input.GetTask().Priority, test.expectedPriority)
+		}
+	}
 }

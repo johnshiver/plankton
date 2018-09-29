@@ -347,9 +347,18 @@ func RunTaskRunner(tRunner TaskRunner, wg *sync.WaitGroup, TokenReturn chan stru
 
 }
 
-func SetTaskPriorities(rootTask *Task) {
-	curr := 0
+func SetTaskPriorities(rootTask *Task) error {
+	/*
+	   Runs DFS on rootTask of task DAG to set task priorities order of precedence
+	   Assumes rootTask is a valid dag.
+	*/
 
+	goodDag := verifyDAG(rootTask)
+	if !goodDag {
+		return fmt.Errorf("Root task runner isnt a valid Task DAG\n")
+	}
+
+	curr := 0
 	var setTaskPriorities func(root *Task)
 	setTaskPriorities = func(root *Task) {
 		for _, child := range root.Children {
@@ -360,11 +369,12 @@ func SetTaskPriorities(rootTask *Task) {
 	}
 
 	setTaskPriorities(rootTask)
+	return nil
 
 }
 
 // TODO: do a better job detecting the D part
-func VerifyDAG(root_task *Task) bool {
+func verifyDAG(root_task *Task) bool {
 
 	task_set := make(map[string]struct{})
 

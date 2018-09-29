@@ -39,12 +39,11 @@ func NewTaskScheduler(root_runner task.TaskRunner, record_run bool) (*TaskSchedu
 		}
 	}
 
-	dag_is_good := task.VerifyDAG(root_runner.GetTask())
-	if !dag_is_good {
-		return nil, fmt.Errorf("Root task runner isnt a valid Task DAG\n")
+	err := task.SetTaskPriorities(root_runner.GetTask())
+	if err != nil {
+		return nil, err
 	}
 
-	task.SetTaskPriorities(root_runner.GetTask())
 	sort.Slice(schedulerNodes, func(i, j int) bool {
 		return schedulerNodes[i].GetTask().Priority < schedulerNodes[j].GetTask().Priority
 	})
@@ -79,11 +78,16 @@ func (ts *TaskScheduler) PrintDAGState() {
 
 // starts the root_runner
 func (ts *TaskScheduler) Start() {
-	//	concurrencyLimit := len(ts.nodes)
-	concurrencyLimit := 3
+	c := config.GetConfig()
 	workerTokens := []struct{}{}
+	var numTokens int
+	if c.ConcurrencyLimit > len(ts.nodes) {
+		numTokens = len(ts.nodes)
+	} else {
+		numTokens = c.ConcurrencyLimit
+	}
 
-	for i := 0; i < concurrencyLimit; i++ {
+	for i := 0; i < numTokens; i++ {
 		workerTokens = append(workerTokens, struct{}{})
 	}
 
@@ -124,19 +128,11 @@ func (ts *TaskScheduler) Start() {
 	if ts.record_run {
 		ts.recordDAGRun()
 	}
-	return
-
 }
 
-// would be nice to have a way to reveal current state of task DAG
-// each task can have a way to say if it is currently running / pending
 func (ts *TaskScheduler) getDAGState() string {
 
-	// TODO: add running time to each task
-	//       and show how long a task took to complete once it is done
-
 	dag_state_strings := []string{}
-
 	root_task := ts.root_runner.GetTask()
 	task_queue := []*task.Task{}
 	task_queue = append(task_queue, root_task)
@@ -176,12 +172,10 @@ type TaskRunnerDepth struct {
 	depth  int
 }
 
-// TODO: write function to sort task runner depths by depth, then runner hash
-
+// Figures out if DAGS are equal by performing breadth first search on each dag, sorting the
+// slice of tasks by depth then hash, then comparing the slices for equality.
 func AreTaskDagsEqual(task_dag1, task_dag2 task.TaskRunner) bool {
 
-	// conduct BFS on task_dag1 and task_dag2
-	//
 	task_dag1_runner_levels := []TaskRunnerDepth{}
 	runner_q := queue.New()
 	runner_q.PushBack(TaskRunnerDepth{task_dag1, 1})
@@ -254,9 +248,6 @@ re runs previously scheduled task dag.  all tasks in a task dag runn share a sch
 which is the expected input.  root_dag
 */
 func ReCreateStoredDag(root_dag task.TaskRunner, scheduler_uuid string) error {
-	// TODO: hashes are only correct from the bottom up, because child params
-	//       are taken into account
-
 	var records []PlanktonRecord
 	c := config.GetConfig()
 	c.DataBase.Where("scheduler_uuid = ?", scheduler_uuid).Find(&records)
@@ -272,7 +263,7 @@ func ReCreateStoredDag(root_dag task.TaskRunner, scheduler_uuid string) error {
 	for runner_q.Len() > 0 {
 		curr = runner_q.PopFront().(TaskRunnerParentRecord)
 
-		// incase it was already initalized
+		// incase found was already initalized
 		found = false
 		for i, record := range records {
 			if record.ParentHash == curr.ParentRecord.TaskHash {
