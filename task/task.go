@@ -115,9 +115,6 @@ func (ts *Task) GetSerializedParams() string {
 		// TODO: Should support all types in SetParam
 		//       maybe there is a way to combine the logic
 
-		// TODO: add support for some Date type, that should be enough to start
-		//       working on running DAGS, storing their state, then re-running them
-		//       with another command
 		switch param.Data.Kind() {
 		case reflect.Int:
 			data_val = fmt.Sprintf("%v", param.Data.Int())
@@ -128,6 +125,7 @@ func (ts *Task) GetSerializedParams() string {
 		default:
 			// TODO: think about what to do in this case
 			fmt.Printf("Param %s not included in the serialized task, its type is not currently supported.\n", param.Name)
+			fmt.Println(param.Data.Kind())
 		}
 
 		param_serializer_elements := []string{

@@ -1,8 +1,10 @@
 package task
 
 import (
+	"fmt"
 	"reflect"
 	"testing"
+	"time"
 
 	"github.com/davecgh/go-spew/spew"
 )
@@ -288,4 +290,43 @@ func TestSetTaskPriorities(t *testing.T) {
 			t.Errorf("TestTaskRunner %s had priority %d but we expected %d", test.input.GetTask().Name, test.input.GetTask().Priority, test.expectedPriority)
 		}
 	}
+}
+
+type TestTaskDate struct {
+	*Task
+	INT_PARAM    int       `task_param:""`
+	STRING_PARAM string    `task_param:""`
+	DATE_PARAM1  time.Time `task_param:""`
+	DATE_PARAM2  time.Time `task_param:""`
+}
+
+func (tt *TestTaskDate) Run() {
+	return
+}
+func (tt *TestTaskDate) GetTask() *Task {
+	return tt.Task
+}
+
+func createTestTaskDate(strParam string, intParam int, date1, date2 time.Time) *TestTaskDate {
+	new_runner := TestTaskDate{
+		INT_PARAM:    intParam,
+		STRING_PARAM: strParam,
+		DATE_PARAM1:  date1,
+		DATE_PARAM2:  date2}
+	new_runner.Task = NewTask("dateTaskRunner")
+	CreateAndSetTaskParams(&new_runner)
+	return &new_runner
+
+}
+
+func TestTaskDateTaskParam(t *testing.T) {
+	timeFormat := "2006-01-02 15:04 MST"
+	testTime1 := "2018-09-30 20:57 UTC"
+	testTime2 := "2014-10-01 20:57 UTC"
+	start, _ := time.Parse(timeFormat, testTime1)
+	end, _ := time.Parse(timeFormat, testTime2)
+	dateRunner := createTestTaskDate("IAMTESTPARAM", 337, start, end)
+	serializedParam := dateRunner.GetSerializedParams()
+	fmt.Println(serializedParam)
+	spew.Dump(dateRunner.Params)
 }
