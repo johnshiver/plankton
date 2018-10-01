@@ -10,6 +10,14 @@ import (
 	"time"
 
 	"github.com/davecgh/go-spew/spew"
+	"github.com/johnshiver/plankton/config"
+	"github.com/phf/go-queue/queue"
+)
+
+const (
+	WAITING  = "waiting"
+	RUNNING  = "running"
+	COMPLETE = "complete"
 )
 
 type TaskRunner interface {
@@ -22,7 +30,6 @@ type TaskRunner interface {
 	GetTask() *Task
 }
 
-// TODO: add docs
 type Task struct {
 	Name           string
 	Children       []TaskRunner
@@ -43,15 +50,13 @@ type TaskParam struct {
 }
 
 func NewTask(name string) *Task {
-	// TODO: make it possible to accept buffer size on results channel
-	//       some tasks may want a buffer, others may not
-
+	c := config.GetConfig()
 	return &Task{
 		Name:           name,
 		Children:       []TaskRunner{},
 		Parent:         nil,
-		ResultsChannel: make(chan string, 10000),
-		WorkerTokens:   make(chan struct{}, 20), // TODO set config concurrencylimit
+		ResultsChannel: make(chan string, c.ResultChannelSize),
+		WorkerTokens:   make(chan struct{}, c.ConcurrencyLimit),
 		Priority:       -1,
 		State:          "waiting",
 		Params:         []*TaskParam{},
@@ -283,27 +288,24 @@ func (ts *Task) AddChildren(children ...TaskRunner) []TaskRunner {
 	return ts.Children
 }
 
-func (ts *Task) SetState(new_state string) (string, error) {
-	valid_states := []string{
-		"waiting",
-		"running",
-		"complete",
+func (ts *Task) SetState(newState string) (string, error) {
+	validStates := []string{
+		WAITING, RUNNING, COMPLETE,
 	}
 
-	valid_state_param := false
-	for _, state := range valid_states {
-		if new_state == state {
-			valid_state_param = true
+	ValidStateParam := false
+	for _, state := range validStates {
+		if newState == state {
+			ValidStateParam = true
 			break
 		}
-
 	}
 
-	if !valid_state_param {
-		return "", fmt.Errorf("Invalid state on task %s", new_state)
+	if !ValidStateParam {
+		return "", fmt.Errorf("Invalid state on task %s", newState)
 	}
 
-	ts.State = new_state
+	ts.State = newState
 	return ts.State, nil
 }
 
@@ -334,10 +336,9 @@ func RunTaskRunner(tRunner TaskRunner, wg *sync.WaitGroup, TokenReturn chan stru
 		select {
 		case token = <-tRunner.GetTask().WorkerTokens:
 			tRunner.GetTask().Start = time.Now()
-			tRunner.GetTask().SetState("running")
-			fmt.Printf("Running Task: %s\n", tRunner.GetTask().Name)
+			tRunner.GetTask().SetState(RUNNING)
 			tRunner.Run()
-			tRunner.GetTask().SetState("complete")
+			tRunner.GetTask().SetState(COMPLETE)
 			tRunner.GetTask().End = time.Now()
 			TokenReturn <- token
 			done = true
@@ -357,7 +358,6 @@ func SetTaskPriorities(rootTask *Task) error {
 	if !goodDag {
 		return fmt.Errorf("Root task runner isnt a valid Task DAG\n")
 	}
-
 	curr := 0
 	var setTaskPriorities func(root *Task)
 	setTaskPriorities = func(root *Task) {
@@ -373,28 +373,58 @@ func SetTaskPriorities(rootTask *Task) error {
 
 }
 
-// TODO: do a better job detecting the D part
 func verifyDAG(root_task *Task) bool {
 
-	task_set := make(map[string]struct{})
+	// TODO: do a better job detecting the D part
+	taskSet := make(map[string]struct{})
 
-	task_queue := []*Task{}
-	task_queue = append(task_queue, root_task)
-	for len(task_queue) > 0 {
-		curr := task_queue[0]
-		task_queue = task_queue[1:]
+	taskQ := []*Task{}
+	taskQ = append(taskQ, root_task)
+	for len(taskQ) > 0 {
+		curr := taskQ[0]
+		taskQ = taskQ[1:]
 
-		_, ok := task_set[curr.GetHash()]
+		_, ok := taskSet[curr.GetHash()]
 		if ok {
 			return false
 		} else {
-			task_set[curr.GetHash()] = struct{}{}
+			taskSet[curr.GetHash()] = struct{}{}
 		}
 		for _, child := range curr.Children {
-			task_queue = append(task_queue, child.GetTask())
+			taskQ = append(taskQ, child.GetTask())
 		}
 
 	}
 
 	return true
+}
+
+// Need to recreate result channels after each scheduler run, because they are close
+// in RunTaskRunner
+func ResetDAGResultChannels(RootRunner TaskRunner) {
+	c := config.GetConfig()
+	runnerQ := queue.New()
+	runnerQ.PushBack(RootRunner)
+	for runnerQ.Len() > 0 {
+		curr := runnerQ.PopFront().(TaskRunner)
+		curr.GetTask().ResultsChannel = make(chan string, c.ResultChannelSize)
+		for _, child := range curr.GetTask().Children {
+			runnerQ.PushBack(child)
+		}
+	}
+}
+
+func ClearDAGState(RootRunner TaskRunner) {
+	runnerQ := queue.New()
+	runnerQ.PushBack(RootRunner)
+	for runnerQ.Len() > 0 {
+		curr := runnerQ.PopFront().(TaskRunner)
+		curr.GetTask().DataProcessed = 0
+		curr.GetTask().Start = time.Time{}
+		curr.GetTask().End = time.Time{}
+
+		for _, child := range curr.GetTask().Children {
+			runnerQ.PushBack(child)
+		}
+	}
 }

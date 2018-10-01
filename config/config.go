@@ -15,7 +15,10 @@ import (
 
 var c Config
 
-const DEFAULT_CONCURRENCY_LIMIT = 4
+const (
+	DEFAULT_CONCURRENCY_LIMIT   = 4
+	DEFAULT_RESULT_CHANNEL_SIZE = 10000
+)
 
 var TEST_SQLITE_DATABASE = DatabaseConfig{
 	Type: "sqlite3",
@@ -28,9 +31,10 @@ var DEFAULT_SQLITE_DATABASE = DatabaseConfig{
 }
 
 type Config struct {
-	DataBase         *gorm.DB
-	DBConfig         DatabaseConfig
-	ConcurrencyLimit int
+	DataBase          *gorm.DB
+	DBConfig          DatabaseConfig
+	ConcurrencyLimit  int
+	ResultChannelSize int
 }
 
 type DatabaseConfig struct {
@@ -65,13 +69,14 @@ func ReadAndSetConfig() {
 		c.ConcurrencyLimit = DEFAULT_CONCURRENCY_LIMIT
 		return
 	}
-	concurrencyLimit := viper.GetInt("concurrencyLimit")
+	concurrencyLimit := viper.GetInt("ConcurrencyLimit")
 	if concurrencyLimit < 1 {
 		concurrencyLimit = DEFAULT_CONCURRENCY_LIMIT
 	}
 	c.ConcurrencyLimit = concurrencyLimit
-	databaseType := viper.GetString("databaseType")
-	databaseHost := viper.GetString("databaseHost")
+	c.ResultChannelSize = DEFAULT_RESULT_CHANNEL_SIZE
+	databaseType := viper.GetString("DatabaseType")
+	databaseHost := viper.GetString("DatabaseHost")
 	SetDatabaseConfig(DatabaseConfig{
 		Type: databaseType,
 		Host: databaseHost,

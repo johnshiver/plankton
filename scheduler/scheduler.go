@@ -16,59 +16,59 @@ import (
 	"github.com/johnshiver/plankton/task"
 )
 
+const (
+	WAITING = "waiting"
+	RUNNING = "running"
+)
+
 type TaskScheduler struct {
-	root_runner task.TaskRunner
-	uuid        *uuid.UUID
-	record_run  bool
-	nodes       []task.TaskRunner
+	RootRunner task.TaskRunner
+	Status     string
+	uuid       *uuid.UUID
+	recordRun  bool
+	nodes      []task.TaskRunner
 }
 
-func NewTaskScheduler(root_runner task.TaskRunner, record_run bool) (*TaskScheduler, error) {
+func NewTaskScheduler(RootRunner task.TaskRunner, recordRun bool) (*TaskScheduler, error) {
 
 	// set task params on runner DAG and create list of all task runners
 	schedulerNodes := []task.TaskRunner{}
-	task_queue := []task.TaskRunner{}
-	task_queue = append(task_queue, root_runner)
-	for len(task_queue) > 0 {
-		curr := task_queue[0]
+	taskQ := []task.TaskRunner{}
+	taskQ = append(taskQ, RootRunner)
+	for len(taskQ) > 0 {
+		curr := taskQ[0]
 		schedulerNodes = append(schedulerNodes, curr)
-		task_queue = task_queue[1:]
+		taskQ = taskQ[1:]
 		task.CreateAndSetTaskParams(curr)
 		for _, child := range curr.GetTask().Children {
-			task_queue = append(task_queue, child)
+			taskQ = append(taskQ, child)
 		}
 	}
 
-	err := task.SetTaskPriorities(root_runner.GetTask())
+	err := task.SetTaskPriorities(RootRunner.GetTask())
 	if err != nil {
 		return nil, err
 	}
-
 	sort.Slice(schedulerNodes, func(i, j int) bool {
 		return schedulerNodes[i].GetTask().Priority < schedulerNodes[j].GetTask().Priority
 	})
 
-	for _, node := range schedulerNodes {
-		fmt.Println(node.GetTask().Name)
-		fmt.Println(node.GetTask().Priority)
-	}
-
-	schedueler_uuid, err := uuid.NewV4()
+	schedulerUUID, err := uuid.NewV4()
 	if err != nil {
 		panic("Failed to create uuid for scheduler")
 	}
 	return &TaskScheduler{
-		root_runner: root_runner,
-		uuid:        schedueler_uuid,
-		record_run:  record_run,
-		nodes:       schedulerNodes}, nil
+		RootRunner: RootRunner,
+		Status:     WAITING,
+		uuid:       schedulerUUID,
+		recordRun:  recordRun,
+		nodes:      schedulerNodes}, nil
 }
 
 func (ts *TaskScheduler) PrintDAGState() {
 	// clears the terminal. might not to add functionality to support other systems
 	// https://stackoverflow.com/questions/22891644/how-can-i-clear-the-terminal-screen-in-go
 	fmt.Print("\033[H\033[2J")
-
 	fmt.Println(strings.Repeat("-", 45))
 	fmt.Println("Current Task DAG Status")
 	fmt.Println(strings.Repeat("-", 45))
@@ -76,8 +76,22 @@ func (ts *TaskScheduler) PrintDAGState() {
 	fmt.Println(strings.Repeat("-", 45))
 }
 
-// starts the root_runner
+// Entry point for starting the DAG beginning at the RootRunner.
+// Each call to Start() does a number of things:
+//     1) create new UUID for the scheduler
+//     2) starts all TaskRunners, taking into account concurrency limit
+//     3) records output if recordRun is set to true
 func (ts *TaskScheduler) Start() {
+	task.ClearDAGState(ts.RootRunner)
+	task.ResetDAGResultChannels(ts.RootRunner)
+	ts.Status = RUNNING
+
+	schedulerUUID, err := uuid.NewV4()
+	if err != nil {
+		panic("Failed to create uuid for scheduler")
+	}
+	ts.uuid = schedulerUUID
+
 	c := config.GetConfig()
 	workerTokens := []struct{}{}
 	var numTokens int
@@ -92,13 +106,13 @@ func (ts *TaskScheduler) Start() {
 	}
 
 	tokenReturn := make(chan struct{})
-	scheduler_wg := &sync.WaitGroup{}
-	scheduler_wg.Add(1)
-	go task.RunTaskRunner(ts.root_runner, scheduler_wg, tokenReturn)
+	schedulerWG := &sync.WaitGroup{}
+	schedulerWG.Add(1)
+	go task.RunTaskRunner(ts.RootRunner, schedulerWG, tokenReturn)
 
 	finished := make(chan struct{})
 	go func() {
-		scheduler_wg.Wait()
+		schedulerWG.Wait()
 		finished <- struct{}{}
 	}()
 
@@ -108,14 +122,10 @@ func (ts *TaskScheduler) Start() {
 		taskPriority += 1
 	}
 
-	ticker := time.NewTicker(time.Millisecond * 200)
 	done := false
 	for !done {
 		select {
-		case <-ticker.C:
-			ts.PrintDAGState()
 		case <-finished:
-			fmt.Println("Finished!")
 			done = true
 		case returnedToken := <-tokenReturn:
 			if taskPriority < len(ts.nodes) {
@@ -124,21 +134,22 @@ func (ts *TaskScheduler) Start() {
 			}
 		}
 	}
-	ts.PrintDAGState()
-	if ts.record_run {
+	if ts.recordRun {
 		ts.recordDAGRun()
 	}
+	ts.Status = WAITING
+	return
 }
 
 func (ts *TaskScheduler) getDAGState() string {
 
 	dag_state_strings := []string{}
-	root_task := ts.root_runner.GetTask()
-	task_queue := []*task.Task{}
-	task_queue = append(task_queue, root_task)
-	for len(task_queue) > 0 {
-		curr := task_queue[0]
-		task_queue = task_queue[1:]
+	rootTask := ts.RootRunner.GetTask()
+	taskQ := []*task.Task{}
+	taskQ = append(taskQ, rootTask)
+	for len(taskQ) > 0 {
+		curr := taskQ[0]
+		taskQ = taskQ[1:]
 		var running_time time.Duration
 		if curr.State == "complete" {
 			running_time = curr.End.Sub(curr.Start)
@@ -160,7 +171,7 @@ func (ts *TaskScheduler) getDAGState() string {
 		}
 
 		for _, child := range curr.Children {
-			task_queue = append(task_queue, child.GetTask())
+			taskQ = append(taskQ, child.GetTask())
 		}
 
 	}
@@ -177,14 +188,14 @@ type TaskRunnerDepth struct {
 func AreTaskDagsEqual(task_dag1, task_dag2 task.TaskRunner) bool {
 
 	task_dag1_runner_levels := []TaskRunnerDepth{}
-	runner_q := queue.New()
-	runner_q.PushBack(TaskRunnerDepth{task_dag1, 1})
-	for runner_q.Len() > 0 {
-		curr := runner_q.PopFront().(TaskRunnerDepth)
+	runnerQ := queue.New()
+	runnerQ.PushBack(TaskRunnerDepth{task_dag1, 1})
+	for runnerQ.Len() > 0 {
+		curr := runnerQ.PopFront().(TaskRunnerDepth)
 		task.CreateAndSetTaskParams(curr.runner)
 		task_dag1_runner_levels = append(task_dag1_runner_levels, curr)
 		for _, child := range curr.runner.GetTask().Children {
-			runner_q.PushBack(TaskRunnerDepth{child, curr.depth + 1})
+			runnerQ.PushBack(TaskRunnerDepth{child, curr.depth + 1})
 		}
 	}
 
@@ -200,14 +211,14 @@ func AreTaskDagsEqual(task_dag1, task_dag2 task.TaskRunner) bool {
 	})
 
 	task_dag2_runner_levels := []TaskRunnerDepth{}
-	runner_q = queue.New()
-	runner_q.PushBack(TaskRunnerDepth{task_dag2, 1})
-	for runner_q.Len() > 0 {
-		curr := runner_q.PopFront().(TaskRunnerDepth)
+	runnerQ = queue.New()
+	runnerQ.PushBack(TaskRunnerDepth{task_dag2, 1})
+	for runnerQ.Len() > 0 {
+		curr := runnerQ.PopFront().(TaskRunnerDepth)
 		task.CreateAndSetTaskParams(curr.runner)
 		task_dag2_runner_levels = append(task_dag2_runner_levels, curr)
 		for _, child := range curr.runner.GetTask().Children {
-			runner_q.PushBack(TaskRunnerDepth{child, curr.depth + 1})
+			runnerQ.PushBack(TaskRunnerDepth{child, curr.depth + 1})
 		}
 	}
 
@@ -255,13 +266,13 @@ func ReCreateStoredDag(root_dag task.TaskRunner, scheduler_uuid string) error {
 		return fmt.Errorf("No records for task dag %s", scheduler_uuid)
 	}
 
-	runner_q := queue.New()
-	runner_q.PushBack(TaskRunnerParentRecord{root_dag, PlanktonRecord{}})
+	runnerQ := queue.New()
+	runnerQ.PushBack(TaskRunnerParentRecord{root_dag, PlanktonRecord{}})
 	var curr TaskRunnerParentRecord
 	var task_record_to_restore PlanktonRecord
 	var found bool
-	for runner_q.Len() > 0 {
-		curr = runner_q.PopFront().(TaskRunnerParentRecord)
+	for runnerQ.Len() > 0 {
+		curr = runnerQ.PopFront().(TaskRunnerParentRecord)
 
 		// incase found was already initalized
 		found = false
@@ -286,7 +297,7 @@ func ReCreateStoredDag(root_dag task.TaskRunner, scheduler_uuid string) error {
 		for _, child := range curr.Runner.GetTask().Children {
 			// TODO: do we need to set parent here? will be set when it's run by scheduler
 			child.GetTask().Parent = curr.Runner
-			runner_q.PushBack(TaskRunnerParentRecord{child, task_record_to_restore})
+			runnerQ.PushBack(TaskRunnerParentRecord{child, task_record_to_restore})
 		}
 
 	}
@@ -305,6 +316,8 @@ type PlanktonRecord struct {
 	ChildHashes   string // should be nullable
 	SchedulerUUID string
 	ExecutionTime float64
+	StartedAt     time.Time
+	EndedAt       time.Time
 }
 
 func (ts *TaskScheduler) recordDAGRun() {
@@ -319,7 +332,7 @@ func (ts *TaskScheduler) recordDAGRun() {
 	c := config.GetConfig()
 	c.DataBase.AutoMigrate(PlanktonRecord{})
 
-	root_task := ts.root_runner.GetTask()
+	root_task := ts.RootRunner.GetTask()
 	task_queue := []*task.Task{}
 	task_queue = append(task_queue, root_task)
 	for len(task_queue) > 0 {
@@ -348,6 +361,8 @@ func (ts *TaskScheduler) recordDAGRun() {
 			ChildHashes:   child_hash,
 			SchedulerUUID: ts.uuid.String(),
 			ExecutionTime: execution_time.Seconds(),
+			StartedAt:     curr.Start,
+			EndedAt:       curr.End,
 		}
 		c.DataBase.Create(&new_plankton_record)
 		for _, child := range curr.Children {
