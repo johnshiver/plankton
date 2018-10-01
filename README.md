@@ -1,9 +1,6 @@
 [![Build Status](https://travis-ci.org/johnshiver/plankton.svg?branch=master)](https://travis-ci.org/johnshiver/plankton)
 [![codecov](https://codecov.io/gh/johnshiver/plankton/branch/master/graph/badge.svg)](https://codecov.io/gh/johnshiver/plankton)
-
-# Plankton - a simple ETL framework for simple, fast ETLs
-
-Plankton is a set of tools you can use to create ETL dags, that is, a graph of tasks
+# Plankton - a simple ETL framework for simple, fast ETLs Plankton is a set of tools you can use to create ETL dags, that is, a graph of tasks
 that need to be completed, each having dependencies such that it creates a
 Directed, Acyclic Graph. Plankton was inspired by Luigi, which Ive used a lot over the past
 six months to write ETLs at work.
@@ -41,13 +38,4 @@ common pattern for each DAG run to stretch a certain length of time.
 
 ## What needs to be done
 
-There is still a lot of work to be done to make Plankton feature complete.
-
-- allow schedulers to run on a schedule : P think a cron type input
-       scheduler := NewScheduler(task_dag, "* * * * *", record_results=True)
-- The tools needed to re-create the DAG exist in the metadata, BUT an outstanding issue is whether
-  or not the task GetHash algorithm doesnt have collisions.  If there are collisions such that
-  two tasks with different parameters have the same hash, then the DAG cannot be effectively
-  recreated.
-- create API server for scheduler, so it can create dag runs.  can be used by eventual whale / borg
-  package that schedules the tasks
+- Create Terminal GUI
