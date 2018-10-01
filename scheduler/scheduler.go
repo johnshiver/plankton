@@ -22,6 +22,7 @@ const (
 )
 
 type TaskScheduler struct {
+	Name       string
 	RootRunner task.TaskRunner
 	Status     string
 	uuid       *uuid.UUID
@@ -29,7 +30,7 @@ type TaskScheduler struct {
 	nodes      []task.TaskRunner
 }
 
-func NewTaskScheduler(RootRunner task.TaskRunner, recordRun bool) (*TaskScheduler, error) {
+func NewTaskScheduler(SchedulerName string, RootRunner task.TaskRunner, recordRun bool) (*TaskScheduler, error) {
 
 	// set task params on runner DAG and create list of all task runners
 	schedulerNodes := []task.TaskRunner{}
@@ -58,6 +59,7 @@ func NewTaskScheduler(RootRunner task.TaskRunner, recordRun bool) (*TaskSchedule
 		panic("Failed to create uuid for scheduler")
 	}
 	return &TaskScheduler{
+		Name:       SchedulerName,
 		RootRunner: RootRunner,
 		Status:     WAITING,
 		uuid:       schedulerUUID,
@@ -306,15 +308,15 @@ func ReCreateStoredDag(root_dag task.TaskRunner, scheduler_uuid string) error {
 
 }
 
-// TODO: replace this with beego or standard library
 type PlanktonRecord struct {
 	gorm.Model
 	TaskName      string
-	TaskParams    string // should be nullable
+	TaskParams    string
 	TaskHash      string
-	ParentHash    string // should be nullable
-	ChildHashes   string // should be nullable
+	ParentHash    string
+	ChildHashes   string
 	SchedulerUUID string
+	SchedulerName string
 	ExecutionTime float64
 	StartedAt     time.Time
 	EndedAt       time.Time
@@ -360,6 +362,7 @@ func (ts *TaskScheduler) recordDAGRun() {
 			ParentHash:    parent_hash,
 			ChildHashes:   child_hash,
 			SchedulerUUID: ts.uuid.String(),
+			SchedulerName: ts.Name,
 			ExecutionTime: execution_time.Seconds(),
 			StartedAt:     curr.Start,
 			EndedAt:       curr.End,

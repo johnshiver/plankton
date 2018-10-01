@@ -9,19 +9,18 @@ import (
 )
 
 type AssimilatedScheduler struct {
-	Name         string
 	Scheduler    *scheduler.TaskScheduler
 	ScheduleSpec string
 }
 
 func (as *AssimilatedScheduler) RunScheduler() {
 	if as.Scheduler.Status == scheduler.RUNNING {
-		log.Printf("Scheduler %s is still running, skipping scheduled run\n", as.Name)
+		log.Printf("Scheduler %s is still running, skipping scheduled run\n", as.Scheduler.Name)
 		return
 	}
-	log.Printf("Starting %s\n", as.Name)
+	log.Printf("Starting %s\n", as.Scheduler.Name)
 	as.Scheduler.Start()
-	log.Printf("Finished %s\n", as.Name)
+	log.Printf("Finished %s\n", as.Scheduler.Name)
 }
 
 type BorgTaskScheduler struct {
@@ -51,7 +50,7 @@ func (bs *BorgTaskScheduler) Start() {
 		select {
 		case <-ticker.C:
 			for _, s := range bs.Schedulers {
-				log.Println(s.Scheduler.Status)
+				log.Printf("%s -> %s\n", s.Scheduler.Name, s.Scheduler.Status)
 			}
 		}
 	}

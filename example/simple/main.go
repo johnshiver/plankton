@@ -20,15 +20,14 @@ func main() {
 	m2.AddChildren(lo_task)
 	hiLoAgg.AddChildren(m1, m2)
 
-	simpleScheduler, err := scheduler.NewTaskScheduler(hiLoAgg, true)
+	SimpleScheduler, err := scheduler.NewTaskScheduler("Simple Scheduler", hiLoAgg, true)
 	if err != nil {
 		log.Panic(err)
 	}
 
 	borgScheduler, err := borg.NewBorgTaskScheduler(
 		borg.AssimilatedScheduler{
-			Name:         "Simple Scheduler",
-			Scheduler:    simpleScheduler,
+			Scheduler:    SimpleScheduler,
 			ScheduleSpec: "0 * * * * *"},
 	)
 	if err != nil {
