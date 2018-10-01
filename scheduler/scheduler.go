@@ -260,7 +260,7 @@ re runs previously scheduled task dag.  all tasks in a task dag runn share a sch
 
 which is the expected input.  root_dag
 */
-func ReCreateStoredDag(root_dag task.TaskRunner, scheduler_uuid string) error {
+func ReCreateStoredDag(RootDAG task.TaskRunner, scheduler_uuid string) error {
 	var records []PlanktonRecord
 	c := config.GetConfig()
 	c.DataBase.Where("scheduler_uuid = ?", scheduler_uuid).Find(&records)
@@ -269,7 +269,7 @@ func ReCreateStoredDag(root_dag task.TaskRunner, scheduler_uuid string) error {
 	}
 
 	runnerQ := queue.New()
-	runnerQ.PushBack(TaskRunnerParentRecord{root_dag, PlanktonRecord{}})
+	runnerQ.PushBack(TaskRunnerParentRecord{RootDAG, PlanktonRecord{}})
 	var curr TaskRunnerParentRecord
 	var task_record_to_restore PlanktonRecord
 	var found bool
