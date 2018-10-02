@@ -24,6 +24,7 @@ func (a *Aggregator) Run() {
 	for result := range a.ResultsChannel {
 		results = append(results, result)
 		a.DataProcessed += 1
+		a.Logger.Println(result)
 	}
 
 }

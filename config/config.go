@@ -12,13 +12,14 @@ import (
 )
 
 // TODO: make this concurrency safe / dont let writes happen out of this module
-
 var c Config
 
 const (
 	DEFAULT_CONCURRENCY_LIMIT   = 4
 	DEFAULT_RESULT_CHANNEL_SIZE = 10000
 )
+
+var DEFAULT_LOGGING_DIRECTORY = os.Getenv("HOME") + "/.plankton_logs/"
 
 var TEST_SQLITE_DATABASE = DatabaseConfig{
 	Type: "sqlite3",
@@ -35,6 +36,7 @@ type Config struct {
 	DBConfig          DatabaseConfig
 	ConcurrencyLimit  int
 	ResultChannelSize int
+	LoggingDirectory  string
 }
 
 type DatabaseConfig struct {
@@ -48,6 +50,7 @@ func init() {
 	viper.AddConfigPath("/etc/plankton")
 	viper.AddConfigPath(".")
 	ReadAndSetConfig()
+	ReadOrCreateLoggingDirectory()
 }
 
 func GetConfig() Config {
@@ -67,6 +70,8 @@ func ReadAndSetConfig() {
 		log.Println("Using default sqlite db")
 		SetDatabaseConfig(DEFAULT_SQLITE_DATABASE)
 		c.ConcurrencyLimit = DEFAULT_CONCURRENCY_LIMIT
+		c.LoggingDirectory = DEFAULT_LOGGING_DIRECTORY
+		c.ResultChannelSize = DEFAULT_RESULT_CHANNEL_SIZE
 		return
 	}
 	concurrencyLimit := viper.GetInt("ConcurrencyLimit")
@@ -74,14 +79,31 @@ func ReadAndSetConfig() {
 		concurrencyLimit = DEFAULT_CONCURRENCY_LIMIT
 	}
 	c.ConcurrencyLimit = concurrencyLimit
-	c.ResultChannelSize = DEFAULT_RESULT_CHANNEL_SIZE
+
+	resultChanSize := viper.GetInt("ResultChannelSize")
+	if resultChanSize < 1 {
+		resultChanSize = DEFAULT_RESULT_CHANNEL_SIZE
+	}
+	c.ResultChannelSize = resultChanSize
+
+	loggingDir := viper.GetString("LoggingDirectory")
+	if loggingDir == "" {
+		loggingDir = DEFAULT_LOGGING_DIRECTORY
+	}
+	c.LoggingDirectory = loggingDir
+
 	databaseType := viper.GetString("DatabaseType")
 	databaseHost := viper.GetString("DatabaseHost")
-	SetDatabaseConfig(DatabaseConfig{
-		Type: databaseType,
-		Host: databaseHost,
-	})
+	if databaseType == "" || databaseHost == "" {
+		SetDatabaseConfig(DEFAULT_SQLITE_DATABASE)
 
+	} else {
+		SetDatabaseConfig(DatabaseConfig{
+			Type: databaseType,
+			Host: databaseHost,
+		})
+
+	}
 }
 
 func SetDatabaseConfig(db_config DatabaseConfig) {
@@ -97,4 +119,12 @@ func SetDatabaseConfig(db_config DatabaseConfig) {
 		os.Exit(1)
 	}
 	c.DataBase = db
+}
+
+func ReadOrCreateLoggingDirectory() {
+	err := os.MkdirAll(c.LoggingDirectory, os.ModePerm)
+	if err != nil {
+		panic(err)
+	}
+
 }

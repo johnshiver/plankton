@@ -3,6 +3,7 @@ package task
 import (
 	"fmt"
 	"hash/fnv"
+	"log"
 	"reflect"
 	"strconv"
 	"strings"
@@ -42,6 +43,7 @@ type Task struct {
 	Start          time.Time
 	End            time.Time
 	DataProcessed  int
+	Logger         *log.Logger
 }
 
 type TaskParam struct {
@@ -58,7 +60,7 @@ func NewTask(name string) *Task {
 		ResultsChannel: make(chan string, c.ResultChannelSize),
 		WorkerTokens:   make(chan struct{}, c.ConcurrencyLimit),
 		Priority:       -1,
-		State:          "waiting",
+		State:          WAITING,
 		Params:         []*TaskParam{},
 		DataProcessed:  0,
 	}
@@ -314,18 +316,18 @@ func RunTaskRunner(tRunner TaskRunner, wg *sync.WaitGroup, TokenReturn chan stru
 	// TODO: add that failsafe i read in rob fig's cron project
 	defer wg.Done()
 
-	runner_children := tRunner.GetTask().Children
-	if len(runner_children) > 0 {
+	runnerChildren := tRunner.GetTask().Children
+	if len(runnerChildren) > 0 {
 
-		parent_wg := &sync.WaitGroup{}
-		for _, child := range runner_children {
+		parentWG := &sync.WaitGroup{}
+		for _, child := range runnerChildren {
 			child.GetTask().Parent = tRunner
-			parent_wg.Add(1)
-			go RunTaskRunner(child, parent_wg, TokenReturn)
+			parentWG.Add(1)
+			go RunTaskRunner(child, parentWG, TokenReturn)
 		}
 
 		go func() {
-			parent_wg.Wait()
+			parentWG.Wait()
 			close(tRunner.GetTask().ResultsChannel)
 		}()
 	}
@@ -335,17 +337,17 @@ func RunTaskRunner(tRunner TaskRunner, wg *sync.WaitGroup, TokenReturn chan stru
 	for !done {
 		select {
 		case token = <-tRunner.GetTask().WorkerTokens:
+			tRunner.GetTask().Logger.Printf("Starting task")
 			tRunner.GetTask().Start = time.Now()
 			tRunner.GetTask().SetState(RUNNING)
 			tRunner.Run()
 			tRunner.GetTask().SetState(COMPLETE)
 			tRunner.GetTask().End = time.Now()
+			tRunner.GetTask().Logger.Printf("Task finished")
 			TokenReturn <- token
 			done = true
 		}
-
 	}
-
 }
 
 func SetTaskPriorities(rootTask *Task) error {
@@ -353,24 +355,22 @@ func SetTaskPriorities(rootTask *Task) error {
 	   Runs DFS on rootTask of task DAG to set task priorities order of precedence
 	   Assumes rootTask is a valid dag.
 	*/
-
 	goodDag := verifyDAG(rootTask)
 	if !goodDag {
 		return fmt.Errorf("Root task runner isnt a valid Task DAG\n")
 	}
-	curr := 0
+	currPriority := 0
 	var setTaskPriorities func(root *Task)
 	setTaskPriorities = func(root *Task) {
 		for _, child := range root.Children {
 			setTaskPriorities(child.GetTask())
 		}
-		root.Priority = curr
-		curr += 1
+		root.Priority = currPriority
+		currPriority += 1
 	}
 
 	setTaskPriorities(rootTask)
 	return nil
-
 }
 
 func verifyDAG(root_task *Task) bool {

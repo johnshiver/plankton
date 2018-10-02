@@ -2,6 +2,7 @@ package scheduler
 
 import (
 	"fmt"
+	"log"
 	"sort"
 	"strings"
 	"sync"
@@ -11,6 +12,7 @@ import (
 	_ "github.com/jinzhu/gorm/dialects/postgres"
 	uuid "github.com/nu7hatch/gouuid"
 	"github.com/phf/go-queue/queue"
+	lumberjack "gopkg.in/natefinch/lumberjack.v2"
 
 	"github.com/johnshiver/plankton/config"
 	"github.com/johnshiver/plankton/task"
@@ -28,9 +30,23 @@ type TaskScheduler struct {
 	uuid       *uuid.UUID
 	recordRun  bool
 	nodes      []task.TaskRunner
+	Logger     *log.Logger
 }
 
 func NewTaskScheduler(SchedulerName string, RootRunner task.TaskRunner, recordRun bool) (*TaskScheduler, error) {
+	c := config.GetConfig()
+	logFilePrefix := strings.ToLower(SchedulerName)
+	logFileName := fmt.Sprintf("%s-scheduler.log", logFilePrefix)
+	loggingFile := c.LoggingDirectory + logFileName
+
+	logConfig := &lumberjack.Logger{
+		Filename:   loggingFile,
+		MaxSize:    500, // megabytes
+		MaxBackups: 3,
+		MaxAge:     28,   //days
+		Compress:   true, // disabled by default
+	}
+	schedulerLogger := log.New(logConfig, "scheduler", log.LstdFlags)
 
 	// set task params on runner DAG and create list of all task runners
 	schedulerNodes := []task.TaskRunner{}
@@ -41,6 +57,7 @@ func NewTaskScheduler(SchedulerName string, RootRunner task.TaskRunner, recordRu
 		schedulerNodes = append(schedulerNodes, curr)
 		taskQ = taskQ[1:]
 		task.CreateAndSetTaskParams(curr)
+		curr.GetTask().Logger = log.New(logConfig, curr.GetTask().Name+"-", log.LstdFlags)
 		for _, child := range curr.GetTask().Children {
 			taskQ = append(taskQ, child)
 		}
@@ -64,7 +81,8 @@ func NewTaskScheduler(SchedulerName string, RootRunner task.TaskRunner, recordRu
 		Status:     WAITING,
 		uuid:       schedulerUUID,
 		recordRun:  recordRun,
-		nodes:      schedulerNodes}, nil
+		nodes:      schedulerNodes,
+		Logger:     schedulerLogger}, nil
 }
 
 func (ts *TaskScheduler) PrintDAGState() {
@@ -90,7 +108,7 @@ func (ts *TaskScheduler) Start() {
 
 	schedulerUUID, err := uuid.NewV4()
 	if err != nil {
-		panic("Failed to create uuid for scheduler")
+		ts.Logger.Panic("Failed to create uuid for scheduler")
 	}
 	ts.uuid = schedulerUUID
 
