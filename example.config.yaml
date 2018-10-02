@@ -1,7 +1,8 @@
-databaseType: "sqlite3"
-databaseHost: "plankton.db"
-concurrencyLimit: 4
+DatabaseType: "sqlite3"
+DatabaseHost: "plankton.db"
+ConcurrencyLimit: 4
 ResultChannelSize: 1000
+LoggingDirectory: "/var/log/plankton/"
 
-databaseType: "postgres"
-databaseHost: "host=127.0.0.1 port=5432 user=postgres dbname=mytestdb password=mysecretpassword sslmode=disable")
+DatabaseType: "postgres"
+DatabaseHost: "host=127.0.0.1 port=5432 user=postgres dbname=mytestdb password=mysecretpassword sslmode=disable")

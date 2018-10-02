@@ -1,6 +1,8 @@
 [![Build Status](https://travis-ci.org/johnshiver/plankton.svg?branch=master)](https://travis-ci.org/johnshiver/plankton)
 [![codecov](https://codecov.io/gh/johnshiver/plankton/branch/master/graph/badge.svg)](https://codecov.io/gh/johnshiver/plankton)
-# Plankton - a simple ETL framework for simple, fast ETLs Plankton is a set of tools you can use to create ETL dags, that is, a graph of tasks
+# Plankton - a simple ETL framework for simple, fast ETLs
+
+Plankton is a set of tools you can use to create ETL dags, that is, a graph of tasks
 that need to be completed, each having dependencies such that it creates a
 Directed, Acyclic Graph. Plankton was inspired by Luigi, which Ive used a lot over the past
 six months to write ETLs at work.
@@ -28,12 +30,6 @@ keeping, or to re-create previous runs, either with new code or different parame
 Plankton TaskRunners can optinonally define fields marked as "task_param"s. A task_param is a
 field whose value will be recorded in your DAG runs meta data, and whose value will be restored
 if a re-run is executed.
-
-Plankton TaskRunners come with two task_params out of the box, since and to, since it is a very
-common pattern for each DAG run to stretch a certain length of time.
-
-**Currently, Im working on automated DAG scheduling, think cron, that will automatically determine
-  your since and to values.**
 
 
 ## What needs to be done
