@@ -366,6 +366,7 @@ func SetTaskPriorities(rootTask *Task) error {
 			setTaskPriorities(child.GetTask())
 		}
 		root.Priority = currPriority
+		root.Logger.Printf("Priority set: %d\n", root.Priority)
 		currPriority += 1
 	}
 

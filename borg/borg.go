@@ -21,8 +21,9 @@ func (as *AssimilatedScheduler) RunScheduler() {
 		as.Logger.Printf("Scheduler %s is still running, skipping scheduled run\n", as.Scheduler.Name)
 		return
 	}
-	as.Logger.Printf("Starting scheduler")
+	as.Logger.Printf("Starting scheduler.")
 	as.Scheduler.Start()
+	as.Logger.Printf("Scheduler finished.")
 }
 
 type BorgTaskScheduler struct {
