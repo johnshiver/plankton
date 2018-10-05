@@ -1,6 +1,7 @@
 package task
 
 import (
+	"bytes"
 	"fmt"
 	"hash/fnv"
 	"log"
@@ -53,6 +54,10 @@ type TaskParam struct {
 
 func NewTask(name string) *Task {
 	c := config.GetConfig()
+	var (
+		buf    bytes.Buffer
+		logger = log.New(&buf, "logger: ", log.Lshortfile)
+	)
 	return &Task{
 		Name:           name,
 		Children:       []TaskRunner{},
@@ -63,6 +68,7 @@ func NewTask(name string) *Task {
 		State:          WAITING,
 		Params:         []*TaskParam{},
 		DataProcessed:  0,
+		Logger:         logger,
 	}
 }
 
