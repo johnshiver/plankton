@@ -27,13 +27,66 @@ const (
 	navigation = `Ctrl-N: Next Page Ctrl-P: Previous Page`
 )
 
+const tableData = `Last Run|Scheduler Name|Cron Spec
+1/6/2017|Simple Scheduler|1 * * * * *
+1/23/2017|Yelp Sync|0 0 * * * *
+1/23/2017|Yelp Sync|0 0 * * * *
+1/23/2017|Yelp Sync|0 0 * * * *
+1/23/2017|Yelp Sync|0 0 * * * *
+1/23/2017|Yelp Sync|0 0 * * * *
+1/23/2017|Yelp Sync|0 0 * * * *
+1/23/2017|Yelp Sync|0 0 * * * *
+`
+
+var SelectedTaskScheduler string
+
 func SelectScheduler(nextSlide func()) (title string, content tview.Primitive) {
-	list := tview.NewList().
-		AddItem("A Go package for terminal based UIs", "with a special focus on rich interactive widgets", '1', nextSlide).
-		AddItem("Based on github.com/gdamore/tcell", "Like termbox but better (see tcell docs)", '2', nextSlide).
-		AddItem("Designed to be simple", `"Hello world" is 5 lines of code`, '3', nextSlide).
-		AddItem("Good for data entry", `For charts, use "termui" - for low-level views, use "gocui" - ...`, '4', nextSlide).
-		AddItem("Extensive documentation", "Everything is documented, examples in GitHub wiki, demo code for each widget", '5', nextSlide)
+
+	pages := tview.NewPages()
+	modal := tview.NewModal().
+		SetText("Setting Task Scheduler").
+		AddButtons([]string{"Ok"}).
+		SetDoneFunc(func(buttonIndex int, buttonLabel string) {
+			pages.HidePage("modal")
+		})
+
+	table := tview.NewTable().
+		SetFixed(1, 1)
+	for row, line := range strings.Split(tableData, "\n") {
+		for column, cell := range strings.Split(line, "|") {
+			color := tcell.ColorWhite
+			if row == 0 {
+				color = tcell.ColorYellow
+			} else if column == 0 {
+				color = tcell.ColorDarkCyan
+			}
+			align := tview.AlignLeft
+			if row == 0 {
+				align = tview.AlignLeft
+			} else if column == 0 || column >= 4 {
+				align = tview.AlignRight
+			}
+			tableCell := tview.NewTableCell(cell).
+				SetTextColor(color).
+				SetAlign(align).
+				SetSelectable(row != 0 && column != 0)
+			if column >= 1 && column <= 3 {
+				tableCell.SetExpansion(1)
+			}
+			table.SetCell(row, column, tableCell)
+		}
+	}
+	table.SetBorder(true).SetTitle("  Assimilated Task Schedulers  ")
+	table.SetBorders(false).SetSelectable(true, false).SetSeparator(' ')
+	table.SetDoneFunc(func(key tcell.Key) {
+		fmt.Println(key)
+	}).SetSelectedFunc(func(row int, column int) {
+		currCell := table.GetCell(row, 1)
+		SelectedTaskScheduler = currCell.Text
+		modal.SetText(fmt.Sprintf("Selected Task Scheduler: %s", SelectedTaskScheduler))
+		pages.ShowPage("modal")
+
+	})
 
 	// What's the size of the logo?
 	lines := strings.Split(logo, "\n")
@@ -45,29 +98,26 @@ func SelectScheduler(nextSlide func()) (title string, content tview.Primitive) {
 		}
 	}
 	logoBox := tview.NewTextView().
-		SetTextColor(tcell.ColorGreen).
-		SetDoneFunc(func(key tcell.Key) {
-			nextSlide()
-		})
+		SetTextColor(tcell.ColorGreen)
 	fmt.Fprint(logoBox, logo)
 
-	// Create a frame for the subtitle and navigation infos.
 	frame := tview.NewFrame(tview.NewBox()).
 		SetBorders(0, 0, 0, 0, 0, 0).
-		AddText(subtitle, true, tview.AlignCenter, tcell.ColorWhite).
 		AddText("", true, tview.AlignCenter, tcell.ColorWhite).
 		AddText(navigation, true, tview.AlignCenter, tcell.ColorBlue)
 
 	// Create a Flex layout that centers the logo and subtitle.
 	flex := tview.NewFlex().
 		SetDirection(tview.FlexRow).
-		//AddItem(tview.NewBox(), 0, 7, false).
 		AddItem(tview.NewFlex().
 			AddItem(tview.NewBox(), 0, 1, false).
 			AddItem(logoBox, logoWidth, 1, true).
-			AddItem(tview.NewBox(), 0, 1, false), logoHeight, 1, true).
-		AddItem(frame, 0, 5, false).
-		AddItem(list, 0, 10, true)
+			AddItem(tview.NewBox(), 0, 1, false), logoHeight, 1, false).
+		AddItem(frame, 0, 3, false).
+		AddItem(table, 0, 10, true)
 
-	return "Select Schdeuler", flex
+	pages.AddPage("mainPage", flex, true, true)
+	pages.AddPage("modal", modal, false, false)
+
+	return "Select Schdeuler", pages
 }

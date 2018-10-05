@@ -10,7 +10,7 @@ the following shortcuts can be used:
   - Ctrl-N: Jump to next slide
   - Ctrl-P: Jump to previous slide
 */
-package terminal
+package main
 
 import (
 	"fmt"
@@ -32,19 +32,8 @@ var app = tview.NewApplication()
 func main() {
 	// The presentation slides.
 	slides := []Slide{
-		Cover,
-		Introduction,
-		HelloWorld,
-		InputField,
-		Form,
-		TextView1,
-		TextView2,
-		Table,
-		TreeView,
-		Flex,
-		Grid,
-		Colors,
-		End,
+		SelectScheduler,
+		Logs,
 	}
 
 	// The bottom row has some info on where we are.
