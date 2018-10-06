@@ -36,22 +36,40 @@ const tableData = `Last Run|Scheduler Name|Cron Spec
 1/23/2017|Yelp Sync|0 0 * * * *
 1/23/2017|Yelp Sync|0 0 * * * *
 1/23/2017|Yelp Sync|0 0 * * * *
+1/23/2017|Yelp Sync|0 0 * * * *
+1/23/2017|Yelp Sync|0 0 * * * *
+1/23/2017|Yelp Sync|0 0 * * * *
+1/23/2017|Yelp Sync|0 0 * * * *
 `
 
 var SelectedTaskScheduler string
 
 func SelectScheduler(nextSlide func()) (title string, content tview.Primitive) {
-
 	pages := tview.NewPages()
+	table := tview.NewTable().
+		SetFixed(1, 1)
+
+	list := tview.NewList()
+	selectSchedulerTable := func() {
+		app.SetFocus(table)
+	}
+	list.ShowSecondaryText(false).
+		AddItem("Select Scheduler", "", '1', selectSchedulerTable).
+		AddItem("Select Scheduler", "", '2', selectSchedulerTable).
+		AddItem("Select Scheduler", "", '3', selectSchedulerTable).
+		AddItem("Select Scheduler", "", '4', selectSchedulerTable)
+	list.SetTitle("Pick an action")
+
+	list.SetBorderPadding(1, 1, 2, 2)
 	modal := tview.NewModal().
 		SetText("Setting Task Scheduler").
 		AddButtons([]string{"Ok"}).
 		SetDoneFunc(func(buttonIndex int, buttonLabel string) {
 			pages.HidePage("modal")
+			app.SetFocus(list)
 		})
 
-	table := tview.NewTable().
-		SetFixed(1, 1)
+	// populate table
 	for row, line := range strings.Split(tableData, "\n") {
 		for column, cell := range strings.Split(line, "|") {
 			color := tcell.ColorWhite
@@ -97,26 +115,28 @@ func SelectScheduler(nextSlide func()) (title string, content tview.Primitive) {
 			logoWidth = len(line)
 		}
 	}
-	logoBox := tview.NewTextView().
-		SetTextColor(tcell.ColorGreen)
+	logoBox := tview.NewTextView().SetTextColor(tcell.ColorGreen)
 	fmt.Fprint(logoBox, logo)
 
-	frame := tview.NewFrame(tview.NewBox()).
+	navigationFrame := tview.NewFrame(tview.NewBox()).
 		SetBorders(0, 0, 0, 0, 0, 0).
 		AddText("", true, tview.AlignCenter, tcell.ColorWhite).
 		AddText(navigation, true, tview.AlignCenter, tcell.ColorBlue)
 
 	// Create a Flex layout that centers the logo and subtitle.
-	flex := tview.NewFlex().
+	mainPageFlex := tview.NewFlex().
 		SetDirection(tview.FlexRow).
 		AddItem(tview.NewFlex().
 			AddItem(tview.NewBox(), 0, 1, false).
 			AddItem(logoBox, logoWidth, 1, true).
 			AddItem(tview.NewBox(), 0, 1, false), logoHeight, 1, false).
-		AddItem(frame, 0, 3, false).
-		AddItem(table, 0, 10, true)
+		AddItem(navigationFrame, 0, 1, false).
+		AddItem(tview.NewFlex().SetDirection(tview.FlexColumn).
+			AddItem(table, 0, 3, false).
+			AddItem(list, 0, 1, true),
+			0, 2, true)
 
-	pages.AddPage("mainPage", flex, true, true)
+	pages.AddPage("mainPage", mainPageFlex, true, true)
 	pages.AddPage("modal", modal, false, false)
 
 	return "Select Schdeuler", pages

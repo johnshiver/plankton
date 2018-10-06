@@ -38,9 +38,7 @@ func Logs(nextSlide func()) (title string, content tview.Primitive) {
 	flex := tview.NewFlex().
 		SetDirection(tview.FlexRow).
 		// AddItem(tview.NewBox(), 0, 7, false).
-		AddItem(tview.NewFlex().
-			// AddItem(tview.NewBox(), 0, 1, false).
-			AddItem(textView, 0, 1, true), 100, 1, true)
+		AddItem(textView, 0, 1, true)
 		//AddItem(tview.NewBox(), 0, 1, false) 100, 1, true)
 
 	return "Logs", flex
