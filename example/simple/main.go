@@ -5,6 +5,7 @@ import (
 
 	"github.com/johnshiver/plankton/borg"
 	"github.com/johnshiver/plankton/scheduler"
+	"github.com/johnshiver/plankton/terminal"
 )
 
 func main() {
@@ -34,5 +35,6 @@ func main() {
 		log.Panic(err)
 	}
 
-	borgScheduler.Start()
+	// borgScheduler.Start()
+	terminal.RunTerminal(&borgScheduler)
 }

@@ -96,6 +96,10 @@ func (ts *TaskScheduler) PrintDAGState() {
 	fmt.Println(strings.Repeat("-", 45))
 }
 
+func (ts *TaskScheduler) LastRun() string {
+	return "10/05/2018"
+}
+
 // Entry point for starting the DAG beginning at the RootRunner.
 // Each call to Start() does a number of things:
 //     1) create new UUID for the scheduler

@@ -1,4 +1,4 @@
-package main
+package terminal
 
 import (
 	"fmt"
@@ -9,37 +9,43 @@ import (
 	"github.com/rivo/tview"
 )
 
-func Logs(nextSlide func()) (title string, content tview.Primitive) {
-
+// creates a new full page log view for given logFile
+// doneFunc is the function that is called when the view receives the Done Event
+func newLogView(logFile, logTitle string, doneFunc func()) *tview.Flex {
 	textView := tview.NewTextView().
 		SetTextColor(tcell.ColorGreen).
 		SetScrollable(true).
 		SetChangedFunc(func() {
 			app.Draw()
 		}).SetDoneFunc(func(key tcell.Key) {
-		nextSlide()
+		doneFunc()
 	})
 	go func() {
 		for {
-			t, err := tail.TailFile("/home/jshiver/.plankton_logs/simple scheduler-scheduler.log",
+			t, err := tail.TailFile(logFile,
 				tail.Config{Follow: true,
 					Location: &tail.SeekInfo{-1, os.SEEK_END}})
 			if err != nil {
 				panic(err)
 			}
 			for line := range t.Lines {
-				//	fmt.Println(line.Text)
 				fmt.Fprintf(textView, "%s\n", line.Text)
 			}
 		}
 	}()
-	textView.SetBorder(true).SetTitle("Logs for Scheduler")
+	finalLogTitle := fmt.Sprintf(" %s - Logs ", logTitle)
+	textView.SetBorder(true).SetTitle(finalLogTitle)
 
-	flex := tview.NewFlex().
+	logFlexView := tview.NewFlex().
 		SetDirection(tview.FlexRow).
-		// AddItem(tview.NewBox(), 0, 7, false).
 		AddItem(textView, 0, 1, true)
-		//AddItem(tview.NewBox(), 0, 1, false) 100, 1, true)
 
-	return "Logs", flex
+	return logFlexView
+
+}
+
+func Logs(nextSlide func()) (title string, content tview.Primitive) {
+
+	logFlexView := newLogView("/home/john/./.plankton_logs/plankton_borg.log", "Borg Scheduler", nextSlide)
+	return "Logs", logFlexView
 }

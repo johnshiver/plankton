@@ -64,6 +64,8 @@ func NewBorgTaskScheduler(schedulers ...AssimilatedScheduler) (*BorgTaskSchedule
 
 func (bs *BorgTaskScheduler) Start() {
 	bs.Cron.Start()
+	defer bs.Cron.Stop()
+
 	keepRunning := true
 	ticker := time.NewTicker(time.Second * 5)
 	for keepRunning {

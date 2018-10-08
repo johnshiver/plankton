@@ -1,35 +1,57 @@
-/*
-A presentation of the tview package, implemented with tview.
-
-Navigation
-
-The presentation will advance to the next slide when the primitive demonstrated
-in the current slide is left (usually by hitting Enter or Escape). Additionally,
-the following shortcuts can be used:
-
-  - Ctrl-N: Jump to next slide
-  - Ctrl-P: Jump to previous slide
-*/
-package main
+package terminal
 
 import (
 	"fmt"
 	"strconv"
+	"sync"
 
 	"github.com/gdamore/tcell"
+	"github.com/johnshiver/plankton/borg"
+	"github.com/johnshiver/plankton/scheduler"
 	"github.com/rivo/tview"
 )
 
-// Slide is a function which returns the slide's main primitive and its title.
+/* Slide is a function which returns the slide's main primitive and its title.
 // It receives a "nextSlide" function which can be called to advance the
-// presentation to the next slide.
+presentation to the next slide.
+*/
 type Slide func(nextSlide func()) (title string, content tview.Primitive)
 
-// The application.
 var app = tview.NewApplication()
 
+// for setting global State
+var mu = sync.Mutex
+var currentTaskScheduler *scheduler.TaskScheduler
+var BorgScheduler *borg.BorgTaskScheduler
+
+func SetCurrentTaskScheduler(newScheduler *scheduler.TaskScheduler) {
+	mu.Lock()
+	currentTaskScheduler = newScheduler
+	mu.Unlock()
+}
+
+func GetCurrentTaskScheduler() *scheduler.TaskScheduler {
+	mu.Lock()
+	scheduler := currentTaskScheduler
+	mu.Unlock()
+	return scheduler
+}
+
+func GetBorgScheduler() *borg.BorgTaskScheduler {
+	mu.Lock()
+	bs := BorgScheduler
+	mu.Unlock()
+	return bs
+}
+
 // Starting point for the presentation.
-func main() {
+func RunTerminal(bs *borg.BorgTaskScheduler) {
+
+	BorgScheduler = bs
+	SetCurrentTaskScheduler(bs.Schedulers[0])
+
+	s := GetCurrentTaskScheduler()
+
 	// The presentation slides.
 	slides := []Slide{
 		SelectScheduler,

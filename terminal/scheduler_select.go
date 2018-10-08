@@ -1,4 +1,4 @@
-package main
+package terminal
 
 import (
 	"fmt"
@@ -55,10 +55,9 @@ func SelectScheduler(nextSlide func()) (title string, content tview.Primitive) {
 	}
 	list.ShowSecondaryText(false).
 		AddItem("Select Scheduler", "", '1', selectSchedulerTable).
-		AddItem("Select Scheduler", "", '2', selectSchedulerTable).
-		AddItem("Select Scheduler", "", '3', selectSchedulerTable).
-		AddItem("Select Scheduler", "", '4', selectSchedulerTable)
-	list.SetTitle("Pick an action")
+		AddItem("Show Scheduler Logs", "", '2', selectSchedulerTable)
+	list.SetTitleColor(tcell.ColorWhite)
+	list.SetTitle(" Pick an action ")
 
 	list.SetBorderPadding(1, 1, 2, 2)
 	modal := tview.NewModal().
@@ -69,8 +68,11 @@ func SelectScheduler(nextSlide func()) (title string, content tview.Primitive) {
 			app.SetFocus(list)
 		})
 
+	bs := GetBorgScheduler()
+
 	// populate table
-	for row, line := range strings.Split(tableData, "\n") {
+	for row, tScheduler := range bs.Schedulers {
+		line := fmt.Sprintf("%s|%s|%s", tScheduler.Scheduler.LastRun(), tScheduler.Scheduler.Name, tScheduler.ScheduleSpec)
 		for column, cell := range strings.Split(line, "|") {
 			color := tcell.ColorWhite
 			if row == 0 {
@@ -101,6 +103,12 @@ func SelectScheduler(nextSlide func()) (title string, content tview.Primitive) {
 	}).SetSelectedFunc(func(row int, column int) {
 		currCell := table.GetCell(row, 1)
 		SelectedTaskScheduler = currCell.Text
+		for _, aScheduler := range bs.Schedulers {
+			if aScheduler.Scheduler.Name == SelectedTaskScheduler {
+				SetCurrentTaskScheduler(aScheduler.Scheduler)
+				break
+			}
+		}
 		modal.SetText(fmt.Sprintf("Selected Task Scheduler: %s", SelectedTaskScheduler))
 		pages.ShowPage("modal")
 
