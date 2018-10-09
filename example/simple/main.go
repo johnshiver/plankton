@@ -11,10 +11,10 @@ import (
 func main() {
 
 	hi_task := NewProducer("hi", 5)
-	lo_task := NewProducer("lo", 65)
+	lo_task := NewProducer("lo", 25)
 
 	m1 := NewMultiplier(25)
-	m2 := NewMultiplier(7)
+	m2 := NewMultiplier(10)
 	hiLoAgg := NewAggregator()
 
 	m1.AddChildren(hi_task)
