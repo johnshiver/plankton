@@ -35,6 +35,6 @@ func main() {
 		log.Panic(err)
 	}
 
-	// borgScheduler.Start()
-	terminal.RunTerminal(&borgScheduler)
+	go borgScheduler.Start()
+	terminal.RunTerminal(borgScheduler)
 }

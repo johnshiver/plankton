@@ -22,12 +22,9 @@ func newLogView(logFile, logTitle string, doneFunc func()) *tview.Flex {
 	})
 	go func() {
 		for {
-			t, err := tail.TailFile(logFile,
+			t, _ := tail.TailFile(logFile,
 				tail.Config{Follow: true,
 					Location: &tail.SeekInfo{-1, os.SEEK_END}})
-			if err != nil {
-				panic(err)
-			}
 			for line := range t.Lines {
 				fmt.Fprintf(textView, "%s\n", line.Text)
 			}

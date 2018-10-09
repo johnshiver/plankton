@@ -33,14 +33,19 @@ type TaskScheduler struct {
 	Logger     *log.Logger
 }
 
-func NewTaskScheduler(SchedulerName string, RootRunner task.TaskRunner, recordRun bool) (*TaskScheduler, error) {
+func GetTaskSchedulerLogFilePath(schedulerName string) string {
 	c := config.GetConfig()
-	logFilePrefix := strings.ToLower(SchedulerName)
+	logFilePrefix := strings.ToLower(schedulerName)
 	logFileName := fmt.Sprintf("%s-scheduler.log", logFilePrefix)
-	loggingFile := c.LoggingDirectory + logFileName
+	loggingFilePath := c.LoggingDirectory + logFileName
+	return loggingFilePath
+}
+
+func NewTaskScheduler(SchedulerName string, RootRunner task.TaskRunner, recordRun bool) (*TaskScheduler, error) {
+	loggingFilePath := GetTaskSchedulerLogFilePath(SchedulerName)
 
 	logConfig := &lumberjack.Logger{
-		Filename:   loggingFile,
+		Filename:   loggingFilePath,
 		MaxSize:    500, // megabytes
 		MaxBackups: 3,
 		MaxAge:     28,   //days

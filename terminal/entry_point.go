@@ -19,38 +19,36 @@ type Slide func(nextSlide func()) (title string, content tview.Primitive)
 
 var app = tview.NewApplication()
 
-// for setting global State
-var mu = sync.Mutex
+var mu *sync.Mutex
 var currentTaskScheduler *scheduler.TaskScheduler
-var BorgScheduler *borg.BorgTaskScheduler
+var borgScheduler *borg.BorgTaskScheduler
+
+func init() {
+	mu = &sync.Mutex{}
+}
 
 func SetCurrentTaskScheduler(newScheduler *scheduler.TaskScheduler) {
 	mu.Lock()
+	defer mu.Unlock()
 	currentTaskScheduler = newScheduler
-	mu.Unlock()
 }
 
 func GetCurrentTaskScheduler() *scheduler.TaskScheduler {
 	mu.Lock()
-	scheduler := currentTaskScheduler
-	mu.Unlock()
-	return scheduler
+	defer mu.Unlock()
+	return currentTaskScheduler
 }
 
 func GetBorgScheduler() *borg.BorgTaskScheduler {
 	mu.Lock()
-	bs := BorgScheduler
-	mu.Unlock()
-	return bs
+	defer mu.Unlock()
+	return borgScheduler
 }
 
-// Starting point for the presentation.
 func RunTerminal(bs *borg.BorgTaskScheduler) {
 
-	BorgScheduler = bs
-	SetCurrentTaskScheduler(bs.Schedulers[0])
-
-	s := GetCurrentTaskScheduler()
+	borgScheduler = bs
+	SetCurrentTaskScheduler(bs.Schedulers[0].Scheduler)
 
 	// The presentation slides.
 	slides := []Slide{

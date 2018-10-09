@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/gdamore/tcell"
+	"github.com/johnshiver/plankton/scheduler"
 	"github.com/rivo/tview"
 )
 
@@ -42,20 +43,35 @@ const tableData = `Last Run|Scheduler Name|Cron Spec
 1/23/2017|Yelp Sync|0 0 * * * *
 `
 
-var SelectedTaskScheduler string
+var SelectedTaskScheduler scheduler.TaskScheduler
 
 func SelectScheduler(nextSlide func()) (title string, content tview.Primitive) {
 	pages := tview.NewPages()
 	table := tview.NewTable().
 		SetFixed(1, 1)
 
+	// configure list -------------------------------------------------------------------
 	list := tview.NewList()
 	selectSchedulerTable := func() {
 		app.SetFocus(table)
 	}
+
+	logViewDoneFunc := func() {
+		pages.ShowPage("mainPage")
+		app.SetFocus(list)
+		pages.RemovePage("logs")
+	}
+
+	showSchedulerLogs := func() {
+		schedulerLogFile := scheduler.GetTaskSchedulerLogFilePath(currentTaskScheduler.Name)
+		newLogView := newLogView(schedulerLogFile, currentTaskScheduler.Name, logViewDoneFunc)
+		pages.AddPage("logs", newLogView, true, true)
+		pages.ShowPage("logs")
+	}
+
 	list.ShowSecondaryText(false).
 		AddItem("Select Scheduler", "", '1', selectSchedulerTable).
-		AddItem("Show Scheduler Logs", "", '2', selectSchedulerTable)
+		AddItem("Show Scheduler Logs", "", '2', showSchedulerLogs)
 	list.SetTitleColor(tcell.ColorWhite)
 	list.SetTitle(" Pick an action ")
 
@@ -68,11 +84,12 @@ func SelectScheduler(nextSlide func()) (title string, content tview.Primitive) {
 			app.SetFocus(list)
 		})
 
+	// populate table from scheduler ---------------------------------------------------
 	bs := GetBorgScheduler()
-
-	// populate table
 	for row, tScheduler := range bs.Schedulers {
+
 		line := fmt.Sprintf("%s|%s|%s", tScheduler.Scheduler.LastRun(), tScheduler.Scheduler.Name, tScheduler.ScheduleSpec)
+
 		for column, cell := range strings.Split(line, "|") {
 			color := tcell.ColorWhite
 			if row == 0 {
@@ -96,20 +113,22 @@ func SelectScheduler(nextSlide func()) (title string, content tview.Primitive) {
 			table.SetCell(row, column, tableCell)
 		}
 	}
+
+	// style the table and set props  ---------------------------------------------------
 	table.SetBorder(true).SetTitle("  Assimilated Task Schedulers  ")
 	table.SetBorders(false).SetSelectable(true, false).SetSeparator(' ')
 	table.SetDoneFunc(func(key tcell.Key) {
 		fmt.Println(key)
 	}).SetSelectedFunc(func(row int, column int) {
 		currCell := table.GetCell(row, 1)
-		SelectedTaskScheduler = currCell.Text
+		SelectedTaskScheduler := currCell.Text
 		for _, aScheduler := range bs.Schedulers {
 			if aScheduler.Scheduler.Name == SelectedTaskScheduler {
 				SetCurrentTaskScheduler(aScheduler.Scheduler)
 				break
 			}
 		}
-		modal.SetText(fmt.Sprintf("Selected Task Scheduler: %s", SelectedTaskScheduler))
+		modal.SetText(fmt.Sprintf("Selected Task Scheduler: %s", currentTaskScheduler.Name))
 		pages.ShowPage("modal")
 
 	})
