@@ -10,6 +10,8 @@ import (
 	"gopkg.in/natefinch/lumberjack.v2"
 )
 
+const BORG_SCHEDULER_LOG_FILE = "plankton_borg.log"
+
 type AssimilatedScheduler struct {
 	Scheduler    *scheduler.TaskScheduler
 	ScheduleSpec string
@@ -33,15 +35,10 @@ type BorgTaskScheduler struct {
 }
 
 func NewBorgTaskScheduler(schedulers ...AssimilatedScheduler) (*BorgTaskScheduler, error) {
-	c := config.GetConfig()
-
 	schedulerCron := cron.New()
 	assimilatedSchedulers := []AssimilatedScheduler{}
-
-	loggingFile := c.LoggingDirectory + "plankton_borg.log"
-
 	logConfig := &lumberjack.Logger{
-		Filename:   loggingFile,
+		Filename:   GetLogFileName(),
 		MaxSize:    500, // megabytes
 		MaxBackups: 3,
 		MaxAge:     28,   //days
@@ -76,4 +73,11 @@ func (bs *BorgTaskScheduler) Start() {
 			}
 		}
 	}
+}
+
+func GetLogFileName() string {
+
+	c := config.GetConfig()
+	loggingFile := c.LoggingDirectory + BORG_SCHEDULER_LOG_FILE
+	return loggingFile
 }
