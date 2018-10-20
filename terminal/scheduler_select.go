@@ -59,14 +59,14 @@ func SelectScheduler(nextSlide func()) (title string, content tview.Primitive) {
 	logViewDoneFunc := func() {
 		pages.ShowPage("mainPage")
 		app.SetFocus(list)
-		pages.RemovePage("logs")
+		pages.RemovePage(currentTaskScheduler.Name)
 	}
 
 	showSchedulerLogs := func() {
 		schedulerLogFile := scheduler.GetTaskSchedulerLogFilePath(currentTaskScheduler.Name)
 		newLogView := newLogView(schedulerLogFile, currentTaskScheduler.Name, logViewDoneFunc)
-		pages.AddPage("logs", newLogView, true, true)
-		pages.ShowPage("logs")
+		pages.AddPage(currentTaskScheduler.Name, newLogView, true, true)
+		pages.ShowPage(currentTaskScheduler.Name)
 	}
 
 	list.ShowSecondaryText(false).
@@ -86,10 +86,13 @@ func SelectScheduler(nextSlide func()) (title string, content tview.Primitive) {
 
 	// populate table from scheduler ---------------------------------------------------
 	bs := GetBorgScheduler()
-	for row, tScheduler := range bs.Schedulers {
-
+	tableData := []string{}
+	tableData = append(tableData, "Last Run|Scheduler Name|Cron Spec")
+	for _, tScheduler := range bs.Schedulers {
 		line := fmt.Sprintf("%s|%s|%s", tScheduler.Scheduler.LastRun(), tScheduler.Scheduler.Name, tScheduler.ScheduleSpec)
-
+		tableData = append(tableData, line)
+	}
+	for row, line := range tableData {
 		for column, cell := range strings.Split(line, "|") {
 			color := tcell.ColorWhite
 			if row == 0 {

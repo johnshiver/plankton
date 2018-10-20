@@ -10,8 +10,8 @@ import (
 
 func main() {
 
-	hi_task := NewProducer("hi", 5)
-	lo_task := NewProducer("lo", 25)
+	hi_task := NewProducer("hi", 55)
+	lo_task := NewProducer("lo", 65)
 
 	m1 := NewMultiplier(25)
 	m2 := NewMultiplier(10)
