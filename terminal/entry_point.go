@@ -1,11 +1,8 @@
 package terminal
 
 import (
-	"fmt"
-	"strconv"
 	"sync"
 
-	"github.com/gdamore/tcell"
 	"github.com/johnshiver/plankton/borg"
 	"github.com/johnshiver/plankton/scheduler"
 	"github.com/rivo/tview"
@@ -45,60 +42,26 @@ func GetBorgScheduler() *borg.BorgTaskScheduler {
 	return borgScheduler
 }
 
+func SetBorgScheduler(bs *borg.BorgTaskScheduler) {
+	mu.Lock()
+	defer mu.Unlock()
+	borgScheduler = bs
+}
+
 func RunTerminal(bs *borg.BorgTaskScheduler) {
 
-	borgScheduler = bs
-	SetCurrentTaskScheduler(bs.Schedulers[0].Scheduler)
-
-	// The presentation slides.
-	slides := []Slide{
-		SelectScheduler,
-		Logs,
+	if len(bs.Schedulers) < 1 {
+		bs.Logger.Fatal("Couldnt run terminal, no schedulers!")
+		return
 	}
 
-	// The bottom row has some info on where we are.
-	info := tview.NewTextView().
-		SetDynamicColors(true).
-		SetRegions(true).
-		SetWrap(false)
-
-	// Create the pages for all slides.
-	currentSlide := 0
-	info.Highlight(strconv.Itoa(currentSlide))
-	pages := tview.NewPages()
-	previousSlide := func() {
-		currentSlide = (currentSlide - 1 + len(slides)) % len(slides)
-		info.Highlight(strconv.Itoa(currentSlide)).
-			ScrollToHighlight()
-		pages.SwitchToPage(strconv.Itoa(currentSlide))
-	}
-	nextSlide := func() {
-		currentSlide = (currentSlide + 1) % len(slides)
-		info.Highlight(strconv.Itoa(currentSlide)).
-			ScrollToHighlight()
-		pages.SwitchToPage(strconv.Itoa(currentSlide))
-	}
-	for index, slide := range slides {
-		title, primitive := slide(nextSlide)
-		pages.AddPage(strconv.Itoa(index), primitive, true, index == currentSlide)
-		fmt.Fprintf(info, `%d ["%d"][darkcyan]%s[white][""]  `, index+1, index, title)
-	}
+	SetBorgScheduler(bs)
+	schedulerView := CreateSelectSchedulerView()
 
 	// Create the main layout.
 	layout := tview.NewFlex().
 		SetDirection(tview.FlexRow).
-		AddItem(pages, 0, 1, true).
-		AddItem(info, 1, 1, false)
-
-	// Shortcuts to navigate the slides.
-	app.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
-		if event.Key() == tcell.KeyCtrlN {
-			nextSlide()
-		} else if event.Key() == tcell.KeyCtrlP {
-			previousSlide()
-		}
-		return event
-	})
+		AddItem(schedulerView, 0, 1, true)
 
 	// Start the application.
 	if err := app.SetRoot(layout, true).Run(); err != nil {
