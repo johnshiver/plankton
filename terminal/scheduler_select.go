@@ -108,15 +108,10 @@ func CreateTableView(selectionModal *tview.Modal, pages *tview.Pages) *tview.Tab
 			} else if column == 0 {
 				color = tcell.ColorDarkCyan
 			}
-			align := tview.AlignLeft
-			if row == 0 {
-				align = tview.AlignLeft
-			} else if column == 0 || column >= 4 {
-				align = tview.AlignRight
-			}
+			alignment := tview.AlignLeft
 			tableCell := tview.NewTableCell(cell).
 				SetTextColor(color).
-				SetAlign(align).
+				SetAlign(alignment).
 				SetSelectable(row != 0 && column != 0)
 			if column >= 1 && column <= 3 {
 				tableCell.SetExpansion(1)

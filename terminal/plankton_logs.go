@@ -25,8 +25,9 @@ func newLogView(logFile, logTitle string, doneFunc func()) *tview.Flex {
 		for {
 			t, _ := tail.TailFile(logFile,
 				tail.Config{Follow: true,
-					Location: &tail.SeekInfo{-1, os.SEEK_END},
-					Logger:   tail.DiscardingLogger})
+					Location: &tail.SeekInfo{-100, os.SEEK_END},
+					// ensure no tail logs show up on the screen
+					Logger: tail.DiscardingLogger})
 			for line := range t.Lines {
 				fmt.Fprintf(textView, "%s\n", line.Text)
 			}

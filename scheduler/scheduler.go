@@ -102,7 +102,14 @@ func (ts *TaskScheduler) PrintDAGState() {
 }
 
 func (ts *TaskScheduler) LastRun() string {
-	return "10/05/2018"
+	var records []PlanktonRecord
+	c := config.GetConfig()
+	c.DataBase.Order("started_at desc").Where("scheduler_name = ?", ts.Name).Find(&records)
+	if len(records) < 1 {
+		return "No Runs"
+	}
+	last_record := records[0]
+	return last_record.EndedAt.Format(time.RFC3339)
 }
 
 // Entry point for starting the DAG beginning at the RootRunner.
@@ -111,6 +118,11 @@ func (ts *TaskScheduler) LastRun() string {
 //     2) starts all TaskRunners, taking into account concurrency limit
 //     3) records output if recordRun is set to true
 func (ts *TaskScheduler) Start() {
+	// TODO: make this thread safe
+	if ts.Status == RUNNING {
+		return
+	}
+
 	task.ClearDAGState(ts.RootRunner)
 	task.ResetDAGResultChannels(ts.RootRunner)
 	ts.Status = RUNNING
@@ -283,7 +295,7 @@ type TaskRunnerParentRecord struct {
 }
 
 /*
-re runs previously scheduled task dag.  all tasks in a task dag runn share a scheduler uuid
+re creates previously scheduled task dag.  all tasks in a task dag runn share a scheduler uuid
 
 which is the expected input.  root_dag
 */

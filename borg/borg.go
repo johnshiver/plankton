@@ -24,6 +24,7 @@ func (as *AssimilatedScheduler) RunScheduler() {
 		return
 	}
 	as.Logger.Printf("Starting scheduler.")
+	as.Logger.Print(as.Scheduler.Name)
 	as.Scheduler.Start()
 	as.Logger.Printf("Scheduler finished.")
 }
@@ -34,14 +35,14 @@ type BorgTaskScheduler struct {
 	Logger     *log.Logger
 }
 
-func NewBorgTaskScheduler(schedulers ...AssimilatedScheduler) (*BorgTaskScheduler, error) {
+func NewBorgTaskScheduler(aSchedulers ...AssimilatedScheduler) (*BorgTaskScheduler, error) {
 	schedulerCron := cron.New()
 	assimilatedSchedulers := []AssimilatedScheduler{}
 	logConfig := &lumberjack.Logger{
 		Filename:   GetLogFileName(),
-		MaxSize:    500, // megabytes
+		MaxSize:    50, // megabytes
 		MaxBackups: 3,
-		MaxAge:     28,   //days
+		MaxAge:     28,   // days
 		Compress:   true, // disabled by default
 	}
 
@@ -51,10 +52,10 @@ func NewBorgTaskScheduler(schedulers ...AssimilatedScheduler) (*BorgTaskSchedule
 		schedulerCron,
 		borgLogger,
 	}
-	for _, scheduler := range schedulers {
-		scheduler.Logger = log.New(logConfig, scheduler.Scheduler.Name+"-", log.LstdFlags)
-		borgScheduler.Schedulers = append(borgScheduler.Schedulers, scheduler)
-		borgScheduler.Cron.AddFunc(scheduler.ScheduleSpec, scheduler.RunScheduler)
+	for _, as := range aSchedulers {
+		as.Logger = log.New(logConfig, as.Scheduler.Name+"-", log.LstdFlags)
+		borgScheduler.Schedulers = append(borgScheduler.Schedulers, as)
+		borgScheduler.Cron.AddFunc(as.ScheduleSpec, as.Scheduler.Start)
 	}
 	return &borgScheduler, nil
 }
@@ -72,6 +73,7 @@ func (bs *BorgTaskScheduler) Start() {
 				bs.Logger.Printf("%s -> %s\n", s.Scheduler.Name, s.Scheduler.Status)
 			}
 		}
+
 	}
 }
 
