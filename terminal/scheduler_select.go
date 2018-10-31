@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/gdamore/tcell"
+	"github.com/johnshiver/plankton/borg"
 	"github.com/johnshiver/plankton/scheduler"
 	"github.com/rivo/tview"
 )
@@ -27,6 +28,7 @@ const (
 	subtitle   = `Simple, Fast ETLs`
 	navigation = `Select a Task Scheduler then choose an action on the right`
 	MAIN_PAGE  = "main_page"
+	BORG_LOGS  = "borg_logs"
 	MODAL_PAGE = "modal_page"
 )
 
@@ -46,6 +48,7 @@ func CreateSelectSchedulerView() tview.Primitive {
 
 	selectionModal.SetDoneFunc(func(buttonIndex int, buttonLabel string) {
 		pages.HidePage(MODAL_PAGE)
+		pages.ShowPage(MAIN_PAGE)
 		app.SetFocus(actionList)
 	})
 
@@ -132,6 +135,7 @@ func CreateTableView(selectionModal *tview.Modal, pages *tview.Pages) *tview.Tab
 			}
 		}
 		selectionModal.SetText(fmt.Sprintf("Selected Task Scheduler: %s", currentTaskScheduler.Name))
+		pages.HidePage(MAIN_PAGE)
 		pages.ShowPage(MODAL_PAGE)
 
 	}
@@ -140,7 +144,7 @@ func CreateTableView(selectionModal *tview.Modal, pages *tview.Pages) *tview.Tab
 	table.SetBorder(true).SetTitle("  Assimilated Task Schedulers  ")
 	table.SetBorders(false).SetSelectable(true, false).SetSeparator(' ')
 	table.SetDoneFunc(func(key tcell.Key) {
-		fmt.Println(key)
+		pages.RemovePage(MODAL_PAGE)
 	}).SetSelectedFunc(tableSelectRow)
 
 	return table
@@ -166,9 +170,23 @@ func CreateActionList(table *tview.Table, pages *tview.Pages) *tview.List {
 		pages.ShowPage(currentTaskScheduler.Name)
 	}
 
+	borgLogViewDoneFunc := func() {
+		pages.ShowPage(MAIN_PAGE)
+		app.SetFocus(actionList)
+		pages.RemovePage(BORG_LOGS)
+	}
+
+	showBorgLogs := func() {
+		borgLogFile := borg.GetLogFileName()
+		borgLogView := newLogView(borgLogFile, "Plankton BORG", borgLogViewDoneFunc)
+		pages.AddPage(BORG_LOGS, borgLogView, true, true)
+		pages.ShowPage(BORG_LOGS)
+	}
+
 	actionList.ShowSecondaryText(false).
 		AddItem("Select Scheduler", "", '1', selectSchedulerTable).
-		AddItem("Show Scheduler Logs", "", '2', showSchedulerLogs)
+		AddItem("Show Scheduler Logs", "", '2', showSchedulerLogs).
+		AddItem("Show Borg Logs", "", '3', showBorgLogs)
 	actionList.SetTitleColor(tcell.ColorWhite)
 	actionList.SetTitle(" Pick an action ")
 

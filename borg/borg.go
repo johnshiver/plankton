@@ -76,7 +76,6 @@ func (bs *BorgTaskScheduler) Start() {
 }
 
 func GetLogFileName() string {
-
 	c := config.GetConfig()
 	loggingFile := c.LoggingDirectory + BORG_SCHEDULER_LOG_FILE
 	return loggingFile
