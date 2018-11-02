@@ -2,17 +2,12 @@ package terminal
 
 import (
 	"sync"
+	"time"
 
 	"github.com/johnshiver/plankton/borg"
 	"github.com/johnshiver/plankton/scheduler"
 	"github.com/rivo/tview"
 )
-
-/* Slide is a function which returns the slide's main primitive and its title.
-// It receives a "nextSlide" function which can be called to advance the
-presentation to the next slide.
-*/
-type Slide func(nextSlide func()) (title string, content tview.Primitive)
 
 var app = tview.NewApplication()
 
@@ -68,8 +63,21 @@ func RunTerminal(bs *borg.BorgTaskScheduler) {
 		SetDirection(tview.FlexRow).
 		AddItem(schedulerView, 0, 1, true)
 
+	// refresh UI every 5 seconds
+	go func() {
+		ticker := time.NewTicker(time.Second * 5)
+		table := GetTableView()
+		for {
+			select {
+			case <-ticker.C:
+				SetTableCells(table)
+			}
+		}
+	}()
+
 	// Start the application.
 	if err := app.SetRoot(layout, true).Run(); err != nil {
 		panic(err)
 	}
+
 }

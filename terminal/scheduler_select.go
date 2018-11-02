@@ -32,6 +32,16 @@ const (
 	MODAL_PAGE = "modal_page"
 )
 
+var TableView *tview.Table
+
+func GetTableView() *tview.Table {
+	return TableView
+}
+
+func SetTableView(t *tview.Table) {
+	TableView = t
+}
+
 func CreateSelectSchedulerView() tview.Primitive {
 
 	pages := tview.NewPages()
@@ -40,8 +50,9 @@ func CreateSelectSchedulerView() tview.Primitive {
 		AddButtons([]string{"Ok"})
 	pages.AddPage(MODAL_PAGE, selectionModal, false, false)
 
-	table := CreateTableView(selectionModal, pages)
-	actionList := CreateActionList(table, pages)
+	tableView := CreateTableView(selectionModal, pages)
+	defer SetTableView(tableView)
+	actionList := CreateActionList(tableView, pages)
 
 	selectionModal.SetDoneFunc(func(buttonIndex int, buttonLabel string) {
 		pages.HidePage(MODAL_PAGE)
@@ -77,7 +88,7 @@ func CreateSelectSchedulerView() tview.Primitive {
 			AddItem(tview.NewBox(), 0, 1, false), logoHeight, 1, false).
 		AddItem(navigationFrame, 0, 1, false).
 		AddItem(tview.NewFlex().SetDirection(tview.FlexColumn).
-			AddItem(table, 0, 3, false).
+			AddItem(tableView, 0, 3, false).
 			AddItem(actionList, 0, 1, true),
 			0, 2, true)
 	pages.AddPage(MAIN_PAGE, mainPageFlex, true, true)
@@ -85,16 +96,12 @@ func CreateSelectSchedulerView() tview.Primitive {
 	return pages
 }
 
-func CreateTableView(selectionModal *tview.Modal, pages *tview.Pages) *tview.Table {
-	table := tview.NewTable().
-		SetFixed(1, 1)
-
-	// populate table from scheduler ---------------------------------------------------
+func SetTableCells(table *tview.Table) {
 	bs := GetBorgScheduler()
 	tableData := []string{}
-	tableData = append(tableData, "Last Run|Scheduler Name|Cron Spec")
+	tableData = append(tableData, "Last Run|Scheduler Name|Cron Spec|Status")
 	for _, tScheduler := range bs.Schedulers {
-		line := fmt.Sprintf("%s|%s|%s", tScheduler.LastRun(), tScheduler.Name, tScheduler.CronSpec)
+		line := fmt.Sprintf("%s|%s|%s|%s", tScheduler.LastRun(), tScheduler.Name, tScheduler.CronSpec, tScheduler.Status())
 		tableData = append(tableData, line)
 	}
 	for row, line := range tableData {
@@ -117,6 +124,13 @@ func CreateTableView(selectionModal *tview.Modal, pages *tview.Pages) *tview.Tab
 		}
 	}
 
+}
+
+func CreateTableView(selectionModal *tview.Modal, pages *tview.Pages) *tview.Table {
+	table := tview.NewTable().
+		SetFixed(1, 1)
+	SetTableCells(table)
+	bs := GetBorgScheduler()
 	tableSelectRow := func(row int, column int) {
 		currCell := table.GetCell(row, 1)
 		SelectedTaskScheduler := currCell.Text

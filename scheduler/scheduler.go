@@ -112,7 +112,7 @@ func (ts *TaskScheduler) LastRun() string {
 		return "No Runs"
 	}
 	last_record := records[0]
-	return last_record.EndedAt.Format(time.RFC3339)
+	return last_record.EndedAt.Format(time.RFC822Z)
 }
 
 func (ts *TaskScheduler) Status() string {
