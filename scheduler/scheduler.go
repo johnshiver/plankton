@@ -31,6 +31,7 @@ type TaskScheduler struct {
 	recordRun  bool
 	nodes      []task.TaskRunner
 	Logger     *log.Logger
+	CronSpec   string
 	mux        sync.Mutex
 }
 
@@ -42,8 +43,8 @@ func GetTaskSchedulerLogFilePath(schedulerName string) string {
 	return loggingFilePath
 }
 
-func NewTaskScheduler(SchedulerName string, RootRunner task.TaskRunner, recordRun bool) (*TaskScheduler, error) {
-	loggingFilePath := GetTaskSchedulerLogFilePath(SchedulerName)
+func NewTaskScheduler(schedulerName, cronSpec string, RootRunner task.TaskRunner, recordRun bool) (*TaskScheduler, error) {
+	loggingFilePath := GetTaskSchedulerLogFilePath(schedulerName)
 
 	logConfig := &lumberjack.Logger{
 		Filename:   loggingFilePath,
@@ -82,7 +83,8 @@ func NewTaskScheduler(SchedulerName string, RootRunner task.TaskRunner, recordRu
 		panic("Failed to create uuid for scheduler")
 	}
 	return &TaskScheduler{
-		Name:       SchedulerName,
+		Name:       schedulerName,
+		CronSpec:   cronSpec,
 		RootRunner: RootRunner,
 		status:     WAITING,
 		uuid:       schedulerUUID,

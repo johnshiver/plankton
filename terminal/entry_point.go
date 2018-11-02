@@ -56,6 +56,11 @@ func RunTerminal(bs *borg.BorgTaskScheduler) {
 	}
 
 	SetBorgScheduler(bs)
+	if len(bs.Schedulers) < 1 {
+		panic("Cannot start terminal with no schedulers")
+
+	}
+	SetCurrentTaskScheduler(bs.Schedulers[0])
 	schedulerView := CreateSelectSchedulerView()
 
 	// Create the main layout.

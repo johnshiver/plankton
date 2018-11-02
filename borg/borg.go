@@ -12,21 +12,15 @@ import (
 
 const BORG_SCHEDULER_LOG_FILE = "plankton_borg.log"
 
-type AssimilatedScheduler struct {
-	Scheduler    *scheduler.TaskScheduler
-	ScheduleSpec string
-	Logger       *log.Logger
-}
-
 type BorgTaskScheduler struct {
-	Schedulers []AssimilatedScheduler
+	Schedulers []*scheduler.TaskScheduler
 	Cron       *cron.Cron
 	Logger     *log.Logger
 }
 
-func NewBorgTaskScheduler(aSchedulers ...AssimilatedScheduler) (*BorgTaskScheduler, error) {
+func NewBorgTaskScheduler(schedulers ...*scheduler.TaskScheduler) (*BorgTaskScheduler, error) {
 	schedulerCron := cron.New()
-	assimilatedSchedulers := []AssimilatedScheduler{}
+	assimilatedSchedulers := []*scheduler.TaskScheduler{}
 	logConfig := &lumberjack.Logger{
 		Filename:   GetLogFileName(),
 		MaxSize:    50, // megabytes
@@ -41,10 +35,9 @@ func NewBorgTaskScheduler(aSchedulers ...AssimilatedScheduler) (*BorgTaskSchedul
 		schedulerCron,
 		borgLogger,
 	}
-	for _, as := range aSchedulers {
-		as.Logger = log.New(logConfig, as.Scheduler.Name+"-", log.LstdFlags)
-		borgScheduler.Schedulers = append(borgScheduler.Schedulers, as)
-		borgScheduler.Cron.AddFunc(as.ScheduleSpec, as.Scheduler.Start)
+	for _, s := range schedulers {
+		borgScheduler.Schedulers = append(borgScheduler.Schedulers, s)
+		borgScheduler.Cron.AddFunc(s.CronSpec, s.Start)
 	}
 	return &borgScheduler, nil
 }
@@ -59,7 +52,7 @@ func (bs *BorgTaskScheduler) Start() {
 		select {
 		case <-ticker.C:
 			for _, s := range bs.Schedulers {
-				bs.Logger.Printf("%s -> %s\n", s.Scheduler.Name, s.Scheduler.Status())
+				bs.Logger.Printf("%s -> %s\n", s.Name, s.Status())
 			}
 		}
 

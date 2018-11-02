@@ -66,7 +66,7 @@ func TestSaveSchedulerDag(t *testing.T) {
 	t3 := createTestTaskRunner("t3", "test3", 2)
 	t1.GetTask().AddChildren(t2, t3)
 	// create scheduler that doesnt print to standard out
-	test_scheduler, err := NewTaskScheduler("TestScheduler", t1, true)
+	test_scheduler, err := NewTaskScheduler("TestScheduler", "", t1, true)
 	if err != nil {
 		t.Errorf("Received error from task scheduler %v", err)
 	}
@@ -186,7 +186,7 @@ func TestRecreateStoredDag(t *testing.T) {
 	t3 := createTestTaskRunner("t3", "test3", 2)
 	t1.GetTask().AddChildren(t2, t3)
 	// create scheduler that doesnt print to standard out
-	test_scheduler, err := NewTaskScheduler("TestScheduler", t1, true)
+	test_scheduler, err := NewTaskScheduler("TestScheduler", "", t1, true)
 	if err != nil {
 		t.Errorf("Received error from task scheduler %v", err)
 	}

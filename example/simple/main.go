@@ -27,29 +27,21 @@ func main() {
 	agg2 := createAgg(25, 30)
 	agg3 := createAgg(10, 20)
 
-	SimpleScheduler, err := scheduler.NewTaskScheduler("Simple Scheduler", agg1, true)
+	SimpleScheduler, err := scheduler.NewTaskScheduler("Simple Scheduler", "0 * * * * *", agg1, true)
 	if err != nil {
 		log.Panic(err)
 	}
-	SimpleScheduler2, err := scheduler.NewTaskScheduler("Simple Scheduler2", agg2, true)
+	SimpleScheduler2, err := scheduler.NewTaskScheduler("Simple Scheduler2", "10 * * * * *", agg2, true)
 	if err != nil {
 		log.Panic(err)
 	}
-	SimpleScheduler3, err := scheduler.NewTaskScheduler("Simple Scheduler3", agg3, true)
+	SimpleScheduler3, err := scheduler.NewTaskScheduler("Simple Scheduler3", "30 * * * * * ", agg3, true)
 	if err != nil {
 		log.Panic(err)
 	}
 
 	borgScheduler, err := borg.NewBorgTaskScheduler(
-		borg.AssimilatedScheduler{
-			Scheduler:    SimpleScheduler,
-			ScheduleSpec: "0 * * * * *"},
-		borg.AssimilatedScheduler{
-			Scheduler:    SimpleScheduler2,
-			ScheduleSpec: "10 * * * * *"},
-		borg.AssimilatedScheduler{
-			Scheduler:    SimpleScheduler3,
-			ScheduleSpec: "30 * * * * *"},
+		SimpleScheduler, SimpleScheduler2, SimpleScheduler3,
 	)
 	if err != nil {
 		log.Panic(err)

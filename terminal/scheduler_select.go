@@ -34,9 +34,6 @@ const (
 
 func CreateSelectSchedulerView() tview.Primitive {
 
-	bs := GetBorgScheduler()
-	SetCurrentTaskScheduler(bs.Schedulers[0].Scheduler)
-
 	pages := tview.NewPages()
 	selectionModal := tview.NewModal().
 		SetText("Setting Task Scheduler").
@@ -97,7 +94,7 @@ func CreateTableView(selectionModal *tview.Modal, pages *tview.Pages) *tview.Tab
 	tableData := []string{}
 	tableData = append(tableData, "Last Run|Scheduler Name|Cron Spec")
 	for _, tScheduler := range bs.Schedulers {
-		line := fmt.Sprintf("%s|%s|%s", tScheduler.Scheduler.LastRun(), tScheduler.Scheduler.Name, tScheduler.ScheduleSpec)
+		line := fmt.Sprintf("%s|%s|%s", tScheduler.LastRun(), tScheduler.Name, tScheduler.CronSpec)
 		tableData = append(tableData, line)
 	}
 	for row, line := range tableData {
@@ -123,9 +120,9 @@ func CreateTableView(selectionModal *tview.Modal, pages *tview.Pages) *tview.Tab
 	tableSelectRow := func(row int, column int) {
 		currCell := table.GetCell(row, 1)
 		SelectedTaskScheduler := currCell.Text
-		for _, aScheduler := range bs.Schedulers {
-			if aScheduler.Scheduler.Name == SelectedTaskScheduler {
-				SetCurrentTaskScheduler(aScheduler.Scheduler)
+		for _, scheduler := range bs.Schedulers {
+			if scheduler.Name == SelectedTaskScheduler {
+				SetCurrentTaskScheduler(scheduler)
 				break
 			}
 		}
