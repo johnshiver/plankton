@@ -26,11 +26,12 @@ const (
 type TaskScheduler struct {
 	Name       string
 	RootRunner task.TaskRunner
-	Status     string
+	status     string
 	uuid       *uuid.UUID
 	recordRun  bool
 	nodes      []task.TaskRunner
 	Logger     *log.Logger
+	mux        sync.Mutex
 }
 
 func GetTaskSchedulerLogFilePath(schedulerName string) string {
@@ -83,7 +84,7 @@ func NewTaskScheduler(SchedulerName string, RootRunner task.TaskRunner, recordRu
 	return &TaskScheduler{
 		Name:       SchedulerName,
 		RootRunner: RootRunner,
-		Status:     WAITING,
+		status:     WAITING,
 		uuid:       schedulerUUID,
 		recordRun:  recordRun,
 		nodes:      schedulerNodes,
@@ -112,20 +113,34 @@ func (ts *TaskScheduler) LastRun() string {
 	return last_record.EndedAt.Format(time.RFC3339)
 }
 
+func (ts *TaskScheduler) Status() string {
+	ts.mux.Lock()
+	defer ts.mux.Unlock()
+	return ts.status
+}
+
+func (ts *TaskScheduler) SetStatus(newStatus string) error {
+	ts.mux.Lock()
+	defer ts.mux.Unlock()
+	ts.status = newStatus
+	return nil
+}
+
 // Entry point for starting the DAG beginning at the RootRunner.
 // Each call to Start() does a number of things:
 //     1) create new UUID for the scheduler
 //     2) starts all TaskRunners, taking into account concurrency limit
 //     3) records output if recordRun is set to true
 func (ts *TaskScheduler) Start() {
-	// TODO: make this thread safe
-	if ts.Status == RUNNING {
+	if ts.Status() == RUNNING {
+		ts.Logger.Println("Scheduler is currently running, skipping run")
 		return
 	}
 
 	task.ClearDAGState(ts.RootRunner)
 	task.ResetDAGResultChannels(ts.RootRunner)
-	ts.Status = RUNNING
+	ts.SetStatus(RUNNING)
+	defer ts.SetStatus(WAITING)
 
 	schedulerUUID, err := uuid.NewV4()
 	if err != nil {
@@ -178,7 +193,6 @@ func (ts *TaskScheduler) Start() {
 	if ts.recordRun {
 		ts.recordDAGRun()
 	}
-	ts.Status = WAITING
 	return
 }
 

@@ -18,17 +18,6 @@ type AssimilatedScheduler struct {
 	Logger       *log.Logger
 }
 
-func (as *AssimilatedScheduler) RunScheduler() {
-	if as.Scheduler.Status == scheduler.RUNNING {
-		as.Logger.Printf("Scheduler %s is still running, skipping scheduled run\n", as.Scheduler.Name)
-		return
-	}
-	as.Logger.Printf("Starting scheduler.")
-	as.Logger.Print(as.Scheduler.Name)
-	as.Scheduler.Start()
-	as.Logger.Printf("Scheduler finished.")
-}
-
 type BorgTaskScheduler struct {
 	Schedulers []AssimilatedScheduler
 	Cron       *cron.Cron
@@ -70,7 +59,7 @@ func (bs *BorgTaskScheduler) Start() {
 		select {
 		case <-ticker.C:
 			for _, s := range bs.Schedulers {
-				bs.Logger.Printf("%s -> %s\n", s.Scheduler.Name, s.Scheduler.Status)
+				bs.Logger.Printf("%s -> %s\n", s.Scheduler.Name, s.Scheduler.Status())
 			}
 		}
 
