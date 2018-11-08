@@ -20,7 +20,7 @@ func createAllNodes(ts *scheduler.TaskScheduler) *node {
 	var addNode func(tr task.TaskRunner) *node
 	addNode = func(tr task.TaskRunner) *node {
 		cTask := tr.GetTask()
-		node_text := fmt.Sprintf("%s -> %s", cTask.Name, cTask.State)
+		node_text := fmt.Sprintf("%s :: %s :: %s", cTask.Name, cTask.GetSerializedParams(), cTask.State)
 		newNode := &node{text: node_text, expand: true, children: []*node{}}
 		for _, child := range tr.GetTask().Children {
 			cNode := addNode(child)

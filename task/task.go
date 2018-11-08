@@ -45,6 +45,7 @@ type Task struct {
 	End            time.Time
 	DataProcessed  int
 	Logger         *log.Logger
+	mux            sync.Mutex
 }
 
 type TaskParam struct {
@@ -287,12 +288,21 @@ func CreateAndSetTaskParamsFromHash(tr TaskRunner, param_hash string) error {
 }
 
 func (ts *Task) AddChildren(children ...TaskRunner) []TaskRunner {
-	new_task_children := []TaskRunner{}
+	ts.mux.Lock()
+	defer ts.mux.Unlock()
+
+	var tChildren []TaskRunner
+	if len(ts.Children) < 1 {
+		tChildren = []TaskRunner{}
+
+	} else {
+		tChildren = ts.Children
+	}
 	for _, child := range children {
-		new_task_children = append(new_task_children, child)
+		tChildren = append(tChildren, child)
 	}
 
-	ts.Children = new_task_children
+	ts.Children = tChildren
 	return ts.Children
 }
 
