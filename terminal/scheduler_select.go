@@ -188,11 +188,22 @@ func CreateActionList(table *tview.Table, pages *tview.Pages) *tview.List {
 		pages.AddPage(BORG_LOGS, borgLogView, true, true)
 		pages.ShowPage(BORG_LOGS)
 	}
+	treeViewDoneFunc := func() {
+		pages.ShowPage(MAIN_PAGE)
+		app.SetFocus(actionList)
+		pages.RemovePage(currentTaskScheduler.Name + "tree")
+	}
+	showSchedulerTree := func() {
+		treeView := newTreeView(treeViewDoneFunc)
+		pages.AddPage(currentTaskScheduler.Name+"tree", treeView, true, true)
+		pages.ShowPage(currentTaskScheduler.Name + "tree")
+	}
 
 	actionList.ShowSecondaryText(false).
 		AddItem("Select Scheduler", "", '1', selectSchedulerTable).
 		AddItem("Show Scheduler Logs", "", '2', showSchedulerLogs).
-		AddItem("Show Borg Logs", "", '3', showBorgLogs)
+		AddItem("Show Tree View", "", '3', showSchedulerTree).
+		AddItem("Show Borg Logs", "", '4', showBorgLogs)
 	actionList.SetTitleColor(tcell.ColorWhite)
 	actionList.SetTitle(" Pick an action ")
 
