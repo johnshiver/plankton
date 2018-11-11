@@ -140,7 +140,9 @@ func CreateTableView(selectionModal *tview.Modal, pages *tview.Pages) *tview.Tab
 				break
 			}
 		}
-		selectionModal.SetText(fmt.Sprintf("Selected Task Scheduler: %s", currentTaskScheduler.Name))
+
+		cTaskScheduler := GetCurrentTaskScheduler()
+		selectionModal.SetText(fmt.Sprintf("Selected Task Scheduler: %s", cTaskScheduler.Name))
 		pages.HidePage(MAIN_PAGE)
 		pages.ShowPage(MODAL_PAGE)
 
@@ -166,14 +168,17 @@ func CreateActionList(table *tview.Table, pages *tview.Pages) *tview.List {
 	logViewDoneFunc := func() {
 		pages.ShowPage(MAIN_PAGE)
 		app.SetFocus(actionList)
-		pages.RemovePage(currentTaskScheduler.Name)
+		cTaskScheduler := GetCurrentTaskScheduler()
+		pages.RemovePage(cTaskScheduler.Name)
 	}
 
 	showSchedulerLogs := func() {
 		schedulerLogFile := scheduler.GetTaskSchedulerLogFilePath(currentTaskScheduler.Name)
 		newLogView := newLogView(schedulerLogFile, currentTaskScheduler.Name, logViewDoneFunc)
-		pages.AddPage(currentTaskScheduler.Name, newLogView, true, true)
-		pages.ShowPage(currentTaskScheduler.Name)
+
+		cTaskScheduler := GetCurrentTaskScheduler()
+		pages.AddPage(cTaskScheduler.Name, newLogView, true, true)
+		pages.ShowPage(cTaskScheduler.Name)
 	}
 
 	borgLogViewDoneFunc := func() {
@@ -191,19 +196,27 @@ func CreateActionList(table *tview.Table, pages *tview.Pages) *tview.List {
 	treeViewDoneFunc := func() {
 		pages.ShowPage(MAIN_PAGE)
 		app.SetFocus(actionList)
-		pages.RemovePage(currentTaskScheduler.Name + "tree")
+		cTaskScheduler := GetCurrentTaskScheduler()
+		pages.RemovePage(cTaskScheduler.Name + "tree")
 	}
 	showSchedulerTree := func() {
 		treeView := newTreeView(treeViewDoneFunc)
-		pages.AddPage(currentTaskScheduler.Name+"tree", treeView, true, true)
-		pages.ShowPage(currentTaskScheduler.Name + "tree")
+		cTaskScheduler := GetCurrentTaskScheduler()
+		pages.AddPage(cTaskScheduler.Name+"tree", treeView, true, true)
+		pages.ShowPage(cTaskScheduler.Name + "tree")
+	}
+
+	startCurrentTaskScheduler := func() {
+		cTaskScheduler := GetCurrentTaskScheduler()
+		go cTaskScheduler.Start()
 	}
 
 	actionList.ShowSecondaryText(false).
 		AddItem("Select Scheduler", "", '1', selectSchedulerTable).
 		AddItem("Show Scheduler Logs", "", '2', showSchedulerLogs).
 		AddItem("Show Tree View", "", '3', showSchedulerTree).
-		AddItem("Show Borg Logs", "", '4', showBorgLogs)
+		AddItem("Show Borg Logs", "", '4', showBorgLogs).
+		AddItem("Start Task Scheduler", "", '5', startCurrentTaskScheduler)
 	actionList.SetTitleColor(tcell.ColorWhite)
 	actionList.SetTitle(" Pick an action ")
 

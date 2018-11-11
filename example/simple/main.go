@@ -26,6 +26,8 @@ func main() {
 	agg1 := createAgg(10, 20)
 	agg2 := createAgg(25, 30)
 	agg3 := createAgg(10, 20)
+	agg4 := createAgg(1, 2)
+	agg4.AddChildren(NewProducer("pika", 10))
 
 	SimpleScheduler, err := scheduler.NewTaskScheduler("Simple Scheduler", "0 * * * * *", agg1, true)
 	if err != nil {
@@ -40,8 +42,13 @@ func main() {
 		log.Panic(err)
 	}
 
+	SimpleScheduler4, err := scheduler.NewTaskScheduler("Simple Scheduler4", "", agg4, true)
+	if err != nil {
+		log.Panic(err)
+	}
+
 	borgScheduler, err := borg.NewBorgTaskScheduler(
-		SimpleScheduler, SimpleScheduler2, SimpleScheduler3,
+		SimpleScheduler, SimpleScheduler2, SimpleScheduler3, SimpleScheduler4,
 	)
 	if err != nil {
 		log.Panic(err)

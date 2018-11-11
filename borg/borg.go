@@ -37,7 +37,9 @@ func NewBorgTaskScheduler(schedulers ...*scheduler.TaskScheduler) (*BorgTaskSche
 	}
 	for _, s := range schedulers {
 		borgScheduler.Schedulers = append(borgScheduler.Schedulers, s)
-		borgScheduler.Cron.AddFunc(s.CronSpec, s.Start)
+		if len(s.CronSpec) > 1 {
+			borgScheduler.Cron.AddFunc(s.CronSpec, s.Start)
+		}
 	}
 	return &borgScheduler, nil
 }
