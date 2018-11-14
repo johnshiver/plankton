@@ -8,13 +8,13 @@ import (
 
 type Producer struct {
 	*task.Task
-	payload  string `task_param:""`
-	interval int    `task_param:""`
+	Payload  string `task_param:""`
+	Interval int    `task_param:""`
 }
 
 func (p *Producer) Run() {
-	for i := 0; i < p.interval; i++ {
-		p.Parent.GetTask().ResultsChannel <- p.payload
+	for i := 0; i < p.Interval; i++ {
+		p.Parent.GetTask().ResultsChannel <- p.Payload
 		p.DataProcessed += 1
 		time.Sleep(1000 * time.Millisecond)
 	}
@@ -24,10 +24,10 @@ func (p *Producer) GetTask() *task.Task {
 	return p.Task
 }
 
-func NewProducer(payload string, interval int) *Producer {
+func NewProducer(Payload string, Interval int) *Producer {
 	return &Producer{
 		task.NewTask("Producer"),
-		payload,
-		interval,
+		Payload,
+		Interval,
 	}
 }

@@ -211,12 +211,27 @@ func CreateActionList(table *tview.Table, pages *tview.Pages) *tview.List {
 		go cTaskScheduler.Start()
 	}
 
+	recordsTableDoneFunc := func() {
+		pages.ShowPage(MAIN_PAGE)
+		app.SetFocus(actionList)
+		cTaskScheduler := GetCurrentTaskScheduler()
+		pages.RemovePage(cTaskScheduler.Name + "records")
+	}
+
+	showRecordsTable := func() {
+		cTaskScheduler := GetCurrentTaskScheduler()
+		recordsTable := newRecordTableView(recordsTableDoneFunc)
+		pages.AddPage(cTaskScheduler.Name+"records", recordsTable, true, true)
+		pages.ShowPage(cTaskScheduler.Name + "records")
+	}
+
 	actionList.ShowSecondaryText(false).
 		AddItem("Select Scheduler", "", '1', selectSchedulerTable).
 		AddItem("Show Scheduler Logs", "", '2', showSchedulerLogs).
 		AddItem("Show Tree View", "", '3', showSchedulerTree).
 		AddItem("Show Borg Logs", "", '4', showBorgLogs).
-		AddItem("Start Task Scheduler", "", '5', startCurrentTaskScheduler)
+		AddItem("Start Task Scheduler", "", '5', startCurrentTaskScheduler).
+		AddItem("View Records", "", '6', showRecordsTable)
 	actionList.SetTitleColor(tcell.ColorWhite)
 	actionList.SetTitle(" Pick an action ")
 

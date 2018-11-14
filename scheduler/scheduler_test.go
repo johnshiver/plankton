@@ -193,7 +193,7 @@ func TestRecreateStoredDag(t *testing.T) {
 	test_scheduler.Start()
 	first_scheduler_uuid := test_scheduler.uuid.String()
 
-	revived_test1 := createTestTaskRunner("", "", 0)
+	revived_test1 := createTestTaskRunner("", "999999", 0)
 	revived_test2 := createTestTaskRunner("", "", 0)
 	revived_test3 := createTestTaskRunner("", "", 0)
 	revived_test3.AddChildren(revived_test1, revived_test2)

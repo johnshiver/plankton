@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"log"
 
 	"github.com/johnshiver/plankton/borg"
@@ -9,8 +10,8 @@ import (
 )
 
 func createAgg(n, m int) *Aggregator {
-	hi_task := NewProducer("hi", 55)
-	lo_task := NewProducer("lo", 65)
+	hi_task := NewProducer("hi", 15)
+	lo_task := NewProducer("lo", 25)
 
 	m1 := NewMultiplier(n)
 	m2 := NewMultiplier(m)
@@ -22,12 +23,12 @@ func createAgg(n, m int) *Aggregator {
 	return hiLoAgg
 }
 
-func main() {
+func runSchedulers() {
 	agg1 := createAgg(10, 20)
 	agg2 := createAgg(25, 30)
 	agg3 := createAgg(10, 20)
 	agg4 := createAgg(1, 2)
-	agg4.AddChildren(NewProducer("pika", 10))
+	agg4.AddChildren(NewProducer("eevee10", 10))
 
 	SimpleScheduler, err := scheduler.NewTaskScheduler("Simple Scheduler", "0 * * * * *", agg1, true)
 	if err != nil {
@@ -56,4 +57,21 @@ func main() {
 
 	go borgScheduler.Start()
 	terminal.RunTerminal(borgScheduler)
+}
+
+func scratch() {
+	agg1 := createAgg(10, 20)
+	SimpleScheduler, err := scheduler.NewTaskScheduler("Simple Scheduler", "0 * * * * *", agg1, true)
+	if err != nil {
+		log.Panic(err)
+	}
+	res := SimpleScheduler.LastRecords()
+	for _, r := range res {
+		fmt.Println(r)
+	}
+}
+
+func main() {
+	runSchedulers()
+
 }

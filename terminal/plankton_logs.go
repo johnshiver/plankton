@@ -6,7 +6,6 @@ import (
 
 	"github.com/gdamore/tcell"
 	"github.com/hpcloud/tail"
-	"github.com/johnshiver/plankton/borg"
 	"github.com/rivo/tview"
 )
 
@@ -41,12 +40,4 @@ func newLogView(logFile, logTitle string, doneFunc func()) *tview.Flex {
 		AddItem(textView, 0, 1, true)
 
 	return logFlexView
-
-}
-
-func Logs(nextSlide func()) (title string, content tview.Primitive) {
-	logFile := borg.GetLogFileName()
-
-	logFlexView := newLogView(logFile, "Borg Scheduler", nextSlide)
-	return "Logs", logFlexView
 }

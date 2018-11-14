@@ -55,6 +55,7 @@ func NewTaskScheduler(schedulerName, cronSpec string, RootRunner task.TaskRunner
 	}
 	schedulerLogger := log.New(logConfig, "scheduler", log.LstdFlags)
 
+	task.SetParents(RootRunner)
 	// set task params on runner DAG and create list of all task runners
 	schedulerNodes := []task.TaskRunner{}
 	taskQ := []task.TaskRunner{}
@@ -128,6 +129,8 @@ func (ts *TaskScheduler) SetStatus(newStatus string) error {
 	return nil
 }
 
+// Start ...
+//
 // Entry point for starting the DAG beginning at the RootRunner.
 // Each call to Start() does a number of things:
 //     1) create new UUID for the scheduler
@@ -139,6 +142,7 @@ func (ts *TaskScheduler) Start() {
 		return
 	}
 
+	task.SetParents(ts.RootRunner)
 	task.ClearDAGState(ts.RootRunner)
 	task.ResetDAGResultChannels(ts.RootRunner)
 	ts.SetStatus(RUNNING)
@@ -150,6 +154,7 @@ func (ts *TaskScheduler) Start() {
 	}
 	ts.uuid = schedulerUUID
 
+	// set worker tokens
 	c := config.GetConfig()
 	workerTokens := []struct{}{}
 	var numTokens int
@@ -163,6 +168,7 @@ func (ts *TaskScheduler) Start() {
 		workerTokens = append(workerTokens, struct{}{})
 	}
 
+	// each task returns its token upon completion
 	tokenReturn := make(chan struct{})
 	schedulerWG := &sync.WaitGroup{}
 	schedulerWG.Add(1)
@@ -310,6 +316,32 @@ type TaskRunnerParentRecord struct {
 	ParentRecord PlanktonRecord
 }
 
+func (ts *TaskScheduler) ReRun(schedulerUUID string) error {
+	// TODO: im not sure this is adequate enough. The goal here is to avoid
+	//       mutating a task runner that is already running
+	if ts.Status() == RUNNING {
+		ts.Logger.Println("ReRun: Alreadying running!")
+		return nil
+	}
+	origUUID := ts.uuid.String()
+	ts.Logger.Printf("Orig UUID is %s\n", origUUID)
+	task.SetParents(ts.RootRunner)
+	ts.recordDAGRun()
+	err := ReCreateStoredDag(ts.RootRunner, schedulerUUID)
+	if err != nil {
+		ts.Logger.Fatal(err)
+		return err
+	}
+	ts.Logger.Println("Starting rerun!")
+	ts.Start()
+	err = ReCreateStoredDag(ts.RootRunner, origUUID)
+	if err != nil {
+		ts.Logger.Fatal(err)
+		return err
+	}
+	return nil
+}
+
 /*
 re creates previously scheduled task dag.  all tasks in a task dag runn share a scheduler uuid
 
@@ -376,6 +408,23 @@ type PlanktonRecord struct {
 	StartedAt     time.Time
 	EndedAt       time.Time
 }
+type Result struct {
+	SchedulerUUID string
+	Start         string
+	End           string
+}
+
+func (ts *TaskScheduler) LastRecords() []Result {
+	c := config.GetConfig()
+	results := []Result{}
+	c.DataBase.Table("plankton_records").
+		Select("scheduler_uuid, min(started_at) as start, max(ended_at) as end").
+		Where("scheduler_name = ?", ts.Name).
+		Group("scheduler_uuid").
+		Order("ended_at desc").
+		Scan(&results)
+	return results
+}
 
 func (ts *TaskScheduler) recordDAGRun() {
 	/*
@@ -385,7 +434,6 @@ func (ts *TaskScheduler) recordDAGRun() {
 
 		TODO: consider using another database ORM or just pure sql, for now i want to get this working
 	*/
-
 	c := config.GetConfig()
 	c.DataBase.AutoMigrate(PlanktonRecord{})
 
@@ -422,6 +470,7 @@ func (ts *TaskScheduler) recordDAGRun() {
 			StartedAt:     curr.Start,
 			EndedAt:       curr.End,
 		}
+		c = config.GetConfig()
 		c.DataBase.Create(&new_plankton_record)
 		for _, child := range curr.Children {
 			task_queue = append(task_queue, child.GetTask())

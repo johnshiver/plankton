@@ -157,6 +157,9 @@ func (ts *Task) GetSerializedParams() string {
 
 func DeserializeTaskParams(serialized_pr string) ([]*TaskParam, error) {
 	deserialized_task_params := []*TaskParam{}
+	if len(serialized_pr) < 1 {
+		return deserialized_task_params, nil
+	}
 	hashed_params := strings.Split(serialized_pr, "_")
 	for _, param := range hashed_params {
 		split_vals := strings.Split(param, ":")
@@ -258,7 +261,7 @@ func CreateTaskRunnerFromParams(tr TaskRunner, params []*TaskParam) error {
 				}
 
 			} else {
-				fmt.Printf("Cannot set %s %v\n", name, f)
+				tr.GetTask().Logger.Printf("Cannot set %s %v\n", name, f)
 			}
 		}
 	}
@@ -327,6 +330,13 @@ func (ts *Task) SetState(newState string) (string, error) {
 	return ts.State, nil
 }
 
+func SetParents(tRunner TaskRunner) {
+	for _, child := range tRunner.GetTask().Children {
+		child.GetTask().Parent = tRunner
+		SetParents(child)
+	}
+}
+
 // Runs a TaskRunner, sets state and notifies waiting group when run is done
 func RunTaskRunner(tRunner TaskRunner, wg *sync.WaitGroup, TokenReturn chan struct{}) {
 	// TODO: add that failsafe i read in rob fig's cron project
@@ -337,7 +347,6 @@ func RunTaskRunner(tRunner TaskRunner, wg *sync.WaitGroup, TokenReturn chan stru
 
 		parentWG := &sync.WaitGroup{}
 		for _, child := range runnerChildren {
-			child.GetTask().Parent = tRunner
 			parentWG.Add(1)
 			go RunTaskRunner(child, parentWG, TokenReturn)
 		}
