@@ -53,7 +53,7 @@ https://golang.org/pkg/testing/#hdr-Main
 func TestMain(m *testing.M) {
 	config.SetDatabaseConfig(config.TEST_SQLITE_DATABASE)
 	test_config = config.GetConfig()
-
+	test_config.DataBase.AutoMigrate(PlanktonRecord{})
 	exit_code := m.Run()
 
 	test_config.DataBase.DropTable(&PlanktonRecord{})

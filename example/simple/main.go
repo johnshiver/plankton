@@ -28,7 +28,7 @@ func runSchedulers() {
 	agg2 := createAgg(25, 30)
 	agg3 := createAgg(10, 20)
 	agg4 := createAgg(1, 2)
-	agg4.AddChildren(NewProducer("eevee10", 10))
+	agg4.AddChildren(NewProducer("pika123", 15))
 
 	SimpleScheduler, err := scheduler.NewTaskScheduler("Simple Scheduler", "0 * * * * *", agg1, true)
 	if err != nil {

@@ -26,19 +26,19 @@ const (
 type TaskScheduler struct {
 	Name       string
 	RootRunner task.TaskRunner
+	Logger     *log.Logger
+	CronSpec   string
 	status     string
 	uuid       *uuid.UUID
 	recordRun  bool
 	nodes      []task.TaskRunner
-	Logger     *log.Logger
-	CronSpec   string
 	mux        sync.Mutex
 }
 
 func GetTaskSchedulerLogFilePath(schedulerName string) string {
-	c := config.GetConfig()
 	logFilePrefix := strings.ToLower(schedulerName)
 	logFileName := fmt.Sprintf("%s-scheduler.log", logFilePrefix)
+	c := config.GetConfig()
 	loggingFilePath := c.LoggingDirectory + logFileName
 	return loggingFilePath
 }
@@ -142,6 +142,7 @@ func (ts *TaskScheduler) Start() {
 		return
 	}
 
+	// setup
 	task.SetParents(ts.RootRunner)
 	task.ClearDAGState(ts.RootRunner)
 	task.ResetDAGResultChannels(ts.RootRunner)
@@ -154,7 +155,7 @@ func (ts *TaskScheduler) Start() {
 	}
 	ts.uuid = schedulerUUID
 
-	// set worker tokens
+	// set worker tokens, this is how we limit concurrency of tasks
 	c := config.GetConfig()
 	workerTokens := []struct{}{}
 	var numTokens int
@@ -163,7 +164,6 @@ func (ts *TaskScheduler) Start() {
 	} else {
 		numTokens = c.ConcurrencyLimit
 	}
-
 	for i := 0; i < numTokens; i++ {
 		workerTokens = append(workerTokens, struct{}{})
 	}
@@ -424,6 +424,11 @@ func (ts *TaskScheduler) LastRecords() []Result {
 		Order("ended_at desc").
 		Scan(&results)
 	return results
+}
+
+func init() {
+	c := config.GetConfig()
+	c.DataBase.AutoMigrate(PlanktonRecord{})
 }
 
 func (ts *TaskScheduler) recordDAGRun() {
