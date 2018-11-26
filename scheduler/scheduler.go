@@ -117,14 +117,10 @@ func (ts *TaskScheduler) LastRun() string {
 }
 
 func (ts *TaskScheduler) Status() string {
-	ts.mux.Lock()
-	defer ts.mux.Unlock()
 	return ts.status
 }
 
 func (ts *TaskScheduler) SetStatus(newStatus string) error {
-	ts.mux.Lock()
-	defer ts.mux.Unlock()
 	ts.status = newStatus
 	return nil
 }
@@ -137,16 +133,19 @@ func (ts *TaskScheduler) SetStatus(newStatus string) error {
 //     2) starts all TaskRunners, taking into account concurrency limit
 //     3) records output if recordRun is set to true
 func (ts *TaskScheduler) Start() {
+
+	ts.mux.Lock()
 	if ts.Status() == RUNNING {
 		ts.Logger.Println("Scheduler is currently running, skipping run")
 		return
 	}
+	ts.SetStatus(RUNNING)
+	ts.mux.Unlock()
 
 	// setup
 	task.SetParents(ts.RootRunner)
 	task.ClearDAGState(ts.RootRunner)
 	task.ResetDAGResultChannels(ts.RootRunner)
-	ts.SetStatus(RUNNING)
 	defer ts.SetStatus(WAITING)
 
 	schedulerUUID, err := uuid.NewV4()
