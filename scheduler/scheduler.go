@@ -140,13 +140,13 @@ func (ts *TaskScheduler) Start() {
 		return
 	}
 	ts.SetStatus(RUNNING)
+	defer ts.SetSTatus(WAITING)
 	ts.mux.Unlock()
 
 	// setup
 	task.SetParents(ts.RootRunner)
 	task.ClearDAGState(ts.RootRunner)
 	task.ResetDAGResultChannels(ts.RootRunner)
-	defer ts.SetStatus(WAITING)
 
 	schedulerUUID, err := uuid.NewV4()
 	if err != nil {
