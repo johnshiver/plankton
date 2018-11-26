@@ -117,10 +117,15 @@ func (ts *TaskScheduler) LastRun() string {
 }
 
 func (ts *TaskScheduler) Status() string {
+	ts.mux.Lock()
+	defer ts.mux.Unlock()
 	return ts.status
 }
 
 func (ts *TaskScheduler) SetStatus(newStatus string) error {
+	ts.mux.Lock()
+	defer ts.mux.Unlock()
+
 	ts.status = newStatus
 	return nil
 }
@@ -134,13 +139,11 @@ func (ts *TaskScheduler) SetStatus(newStatus string) error {
 //     3) records output if recordRun is set to true
 func (ts *TaskScheduler) Start() {
 
-	ts.mux.Lock()
 	if ts.Status() == RUNNING {
 		ts.Logger.Println("Scheduler is currently running, skipping run")
 		return
 	}
 	ts.SetStatus(RUNNING)
-	ts.mux.Unlock()
 	defer ts.SetStatus(WAITING)
 
 	// setup
