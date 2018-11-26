@@ -140,8 +140,8 @@ func (ts *TaskScheduler) Start() {
 		return
 	}
 	ts.SetStatus(RUNNING)
-	defer ts.SetSTatus(WAITING)
 	ts.mux.Unlock()
+	defer ts.SetStatus(WAITING)
 
 	// setup
 	task.SetParents(ts.RootRunner)
@@ -406,20 +406,22 @@ type PlanktonRecord struct {
 	ExecutionTime float64
 	StartedAt     time.Time
 	EndedAt       time.Time
+	Version       string
 }
 type Result struct {
 	SchedulerUUID string
 	Start         string
 	End           string
+	Version       string
 }
 
 func (ts *TaskScheduler) LastRecords() []Result {
 	c := config.GetConfig()
 	results := []Result{}
 	c.DataBase.Table("plankton_records").
-		Select("scheduler_uuid, min(started_at) as start, max(ended_at) as end").
+		Select("scheduler_uuid, min(started_at) as start, max(ended_at) as end, version").
 		Where("scheduler_name = ?", ts.Name).
-		Group("scheduler_uuid").
+		Group("scheduler_uuid, version").
 		Order("ended_at desc").
 		Scan(&results)
 	return results
@@ -473,8 +475,8 @@ func (ts *TaskScheduler) recordDAGRun() {
 			ExecutionTime: execution_time.Seconds(),
 			StartedAt:     curr.Start,
 			EndedAt:       curr.End,
+			Version:       c.Version,
 		}
-		c = config.GetConfig()
 		c.DataBase.Create(&new_plankton_record)
 		for _, child := range curr.Children {
 			task_queue = append(task_queue, child.GetTask())

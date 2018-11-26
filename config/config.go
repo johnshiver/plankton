@@ -12,11 +12,14 @@ import (
 )
 
 // TODO: make this concurrency safe / dont let writes happen out of this module
+
 var c Config
 
+// --------------------------------- Constants -----------------------------------------
 const (
 	DEFAULT_CONCURRENCY_LIMIT   = 4
 	DEFAULT_RESULT_CHANNEL_SIZE = 10000
+	DEFAULT_VERSION             = "UNVERSIONED"
 )
 
 var DEFAULT_LOGGING_DIRECTORY = os.Getenv("HOME") + "/.plankton_logs/"
@@ -31,12 +34,15 @@ var DEFAULT_SQLITE_DATABASE = DatabaseConfig{
 	Host: "/tmp/plankton.db",
 }
 
+// -------------------------------------------------------------------------------------
+
 type Config struct {
 	DataBase          *gorm.DB
 	DBConfig          DatabaseConfig
 	ConcurrencyLimit  int
 	ResultChannelSize int
 	LoggingDirectory  string
+	Version           string
 }
 
 type DatabaseConfig struct {
@@ -64,16 +70,24 @@ func ReadAndSetConfig() {
 	err := viper.ReadInConfig()
 	log.Printf("Using configuration file: %s\n", viper.ConfigFileUsed())
 
-	// config file didnt work, use defaults
+	// config file didnt work, use the defaults
 	if err != nil {
 		log.Println(err.Error())
-		log.Println("Using default sqlite db")
+		log.Println("Using all default values")
 		SetDatabaseConfig(DEFAULT_SQLITE_DATABASE)
 		c.ConcurrencyLimit = DEFAULT_CONCURRENCY_LIMIT
 		c.LoggingDirectory = DEFAULT_LOGGING_DIRECTORY
 		c.ResultChannelSize = DEFAULT_RESULT_CHANNEL_SIZE
+		c.Version = DEFAULT_VERSION
 		return
 	}
+
+	version := viper.GetString("Version")
+	if version == "" {
+		version = DEFAULT_VERSION
+	}
+	c.Version = version
+
 	concurrencyLimit := viper.GetInt("ConcurrencyLimit")
 	if concurrencyLimit < 1 {
 		concurrencyLimit = DEFAULT_CONCURRENCY_LIMIT

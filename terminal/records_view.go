@@ -30,9 +30,9 @@ func newRecordTableView(doneFunc func()) tview.Primitive {
 func setTableCells(table *tview.Table) {
 	cTaskScheduler := GetCurrentTaskScheduler()
 	tableData := []string{}
-	tableData = append(tableData, "SchedulerUUID|Start|End")
+	tableData = append(tableData, "SchedulerUUID|Start|End|Version")
 	for _, r := range cTaskScheduler.LastRecords() {
-		line := fmt.Sprintf("%s|%s|%s", r.SchedulerUUID, r.Start[:19], r.End[:19])
+		line := fmt.Sprintf("%s|%s|%s|%s", r.SchedulerUUID, r.Start[:19], r.End[:19], r.Version)
 		tableData = append(tableData, line)
 	}
 	for row, line := range tableData {

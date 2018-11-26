@@ -92,3 +92,37 @@ DatabaseHost: "plankton.db"
 
 These settings define where Plankton Metadata will be stored.  (If I forgot to mention already,
 the Plankton TaskScheduler takes a parameter recordRun which will / wont store Plankton metadata)
+
+### ConcurrencyLimit
+
+Default
+```
+ConcurrencyLimit: 4
+```
+This value affects how many of your tasks will run in parallel.  Remember, task priority
+is calculated automatically by default, take care to consider whether your DAG can run correctly.
+
+### LoggingDirectory
+
+Default
+```
+LoggingDirectory: $HOME/.plankton_logs/
+```
+The directory where your scheduler and borg logs will be stored.
+
+### ResultChannelSize
+
+Default
+```
+ResultChannelSize: 10000
+```
+Tasks can send results to their parent task via the parent's ResultChannel.  The ResultChannel
+is a string channel with a default size of 10000.
+
+### Version
+Default
+```
+Version: "UNVERSIONED"
+```
+Version is saved to the plankton meta data for each time your scheduler completes a DAG run.
+This can be useful for debugging, mapping data sets to the code that loaded / transformed it.
