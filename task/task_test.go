@@ -289,3 +289,29 @@ func TestSetTaskPriorities(t *testing.T) {
 		}
 	}
 }
+
+func TestSetParents(t *testing.T) {
+	test1 := createTestTaskRunner("test1", 0)
+	test2 := createTestTaskRunner("test2", 0)
+	test3 := createTestTaskRunner("test3", 0)
+	test1.AddChildren(test2)
+	test2.AddChildren(test3)
+	SetParents(test1)
+
+	var tests = []struct {
+		input          TaskRunner
+		expectedParent TaskRunner
+	}{
+		{test1, nil},
+		{test2, test1},
+		{test3, test2},
+	}
+
+	for _, test := range tests {
+		if test.input.GetTask().Parent != test.expectedParent {
+			t.Errorf("TaskRunner %s didnt have expected parent %s", test.input.GetTask().Name, test.expectedParent)
+		}
+
+	}
+
+}
