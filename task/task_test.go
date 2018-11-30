@@ -32,14 +32,14 @@ func compareTestTaskParams(a, b *TestTask) bool {
 }
 
 func createTestTaskRunner(name string, n int) *TestTask {
-	new_runner := TestTask{
+	newRunner := TestTask{
 		NewTask(name),
 		n,
 		"TestString",
 		0,
 	}
-	CreateAndSetTaskParams(&new_runner)
-	return &new_runner
+	CreateAndSetTaskParams(&newRunner)
+	return &newRunner
 
 }
 

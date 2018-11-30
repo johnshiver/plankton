@@ -399,13 +399,13 @@ func SetTaskPriorities(rootTask *Task) error {
 	return nil
 }
 
-func verifyDAG(root_task *Task) bool {
+func verifyDAG(rootTask *Task) bool {
 
 	// TODO: do a better job detecting the D part
 	taskSet := make(map[string]struct{})
 
 	taskQ := []*Task{}
-	taskQ = append(taskQ, root_task)
+	taskQ = append(taskQ, rootTask)
 	for len(taskQ) > 0 {
 		curr := taskQ[0]
 		taskQ = taskQ[1:]

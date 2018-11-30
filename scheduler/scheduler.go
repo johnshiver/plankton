@@ -23,6 +23,8 @@ const (
 	RUNNING = "running"
 )
 
+// TaskScheduler ...
+// The object responsible for taking the root node of a task DAG and running it via the Start() method.
 type TaskScheduler struct {
 	Name       string
 	RootRunner task.TaskRunner
@@ -35,6 +37,8 @@ type TaskScheduler struct {
 	mux        sync.Mutex
 }
 
+// GetTaskSchedulerLogFilePath ...
+// Gven a TaskScheduler name returns log file path based on settings
 func GetTaskSchedulerLogFilePath(schedulerName string) string {
 	logFilePrefix := strings.ToLower(schedulerName)
 	logFileName := fmt.Sprintf("%s-scheduler.log", logFilePrefix)
@@ -43,6 +47,8 @@ func GetTaskSchedulerLogFilePath(schedulerName string) string {
 	return loggingFilePath
 }
 
+// NewTaskScheduler ...
+// Returns new task scheduler
 func NewTaskScheduler(schedulerName, cronSpec string, RootRunner task.TaskRunner, recordRun bool) (*TaskScheduler, error) {
 	loggingFilePath := GetTaskSchedulerLogFilePath(schedulerName)
 
@@ -94,17 +100,8 @@ func NewTaskScheduler(schedulerName, cronSpec string, RootRunner task.TaskRunner
 		Logger:     schedulerLogger}, nil
 }
 
-func (ts *TaskScheduler) PrintDAGState() {
-	// clears the terminal. might not to add functionality to support other systems
-	// https://stackoverflow.com/questions/22891644/how-can-i-clear-the-terminal-screen-in-go
-	fmt.Print("\033[H\033[2J")
-	fmt.Println(strings.Repeat("-", 45))
-	fmt.Println("Current Task DAG Status")
-	fmt.Println(strings.Repeat("-", 45))
-	fmt.Println(ts.getDAGState())
-	fmt.Println(strings.Repeat("-", 45))
-}
-
+// LastRun ...
+// Returns date string of latest run
 func (ts *TaskScheduler) LastRun() string {
 	var records []PlanktonRecord
 	c := config.GetConfig()
@@ -112,16 +109,20 @@ func (ts *TaskScheduler) LastRun() string {
 	if len(records) < 1 {
 		return "No Runs"
 	}
-	last_record := records[0]
-	return last_record.EndedAt.Format(time.RFC822Z)
+	lastRecord := records[0]
+	return lastRecord.EndedAt.Format(time.RFC822Z)
 }
 
+// Status ...
+// Used to expose TaskScheduler.status in a thread safe way
 func (ts *TaskScheduler) Status() string {
 	ts.mux.Lock()
 	defer ts.mux.Unlock()
 	return ts.status
 }
 
+// SetStatus ...
+// Used to set TaskScheduler.status in a thread safe way
 func (ts *TaskScheduler) SetStatus(newStatus string) error {
 	ts.mux.Lock()
 	defer ts.mux.Unlock()
@@ -146,16 +147,8 @@ func (ts *TaskScheduler) Start() {
 	ts.SetStatus(RUNNING)
 	defer ts.SetStatus(WAITING)
 
-	// setup
-	task.SetParents(ts.RootRunner)
-	task.ClearDAGState(ts.RootRunner)
-	task.ResetDAGResultChannels(ts.RootRunner)
-
-	schedulerUUID, err := uuid.NewV4()
-	if err != nil {
-		ts.Logger.Panic("Failed to create uuid for scheduler")
-	}
-	ts.uuid = schedulerUUID
+	ts.prepareRootDagForRun()
+	ts.setUUID()
 
 	// set worker tokens, this is how we limit concurrency of tasks
 	c := config.GetConfig()
@@ -185,7 +178,7 @@ func (ts *TaskScheduler) Start() {
 	taskPriority := 0
 	for _, wToken := range workerTokens {
 		ts.nodes[taskPriority].GetTask().WorkerTokens <- wToken
-		taskPriority += 1
+		taskPriority++
 	}
 
 	done := false
@@ -196,7 +189,7 @@ func (ts *TaskScheduler) Start() {
 		case returnedToken := <-tokenReturn:
 			if taskPriority < len(ts.nodes) {
 				ts.nodes[taskPriority].GetTask().WorkerTokens <- returnedToken
-				taskPriority += 1
+				taskPriority++
 			}
 		}
 	}
@@ -206,41 +199,21 @@ func (ts *TaskScheduler) Start() {
 	return
 }
 
-func (ts *TaskScheduler) getDAGState() string {
-
-	dag_state_strings := []string{}
-	rootTask := ts.RootRunner.GetTask()
-	taskQ := []*task.Task{}
-	taskQ = append(taskQ, rootTask)
-	for len(taskQ) > 0 {
-		curr := taskQ[0]
-		taskQ = taskQ[1:]
-		var running_time time.Duration
-		if curr.State == "complete" {
-			running_time = curr.End.Sub(curr.Start)
-		} else {
-			running_time = time.Now().Sub(curr.Start)
-		}
-
-		curr_state := fmt.Sprintf("\t %s", curr.State)
-		curr_run_time := fmt.Sprintf("\t %s", running_time)
-		curr_data_processed := fmt.Sprintf("\t data processed so far: %d", curr.DataProcessed)
-		serialized_task_params := curr.GetSerializedParams()
-		serialized_task_params = strings.TrimRight(serialized_task_params, "_")
-
-		dag_state_strings = append(dag_state_strings, curr.Name+"=> "+serialized_task_params)
-		dag_state_strings = append(dag_state_strings, curr_state)
-		dag_state_strings = append(dag_state_strings, curr_run_time)
-		if curr.DataProcessed > 0 {
-			dag_state_strings = append(dag_state_strings, curr_data_processed)
-		}
-
-		for _, child := range curr.Children {
-			taskQ = append(taskQ, child.GetTask())
-		}
-
+func (ts *TaskScheduler) setUUID() {
+	schedulerUUID, err := uuid.NewV4()
+	if err != nil {
+		ts.Logger.Panic("Failed to create uuid for scheduler")
 	}
-	return strings.Join(dag_state_strings, "\n")
+	ts.uuid = schedulerUUID
+}
+
+// prepareRootDagForRun ...
+// Ensures RootRunner has the correct state before starting a new run.  Since the same data structure is used between runs,
+// it helps to clear state.
+func (ts *TaskScheduler) prepareRootDagForRun() {
+	task.SetParents(ts.RootRunner)
+	task.ClearDAGState(ts.RootRunner)
+	task.ResetDAGResultChannels(ts.RootRunner)
 }
 
 type TaskRunnerDepth struct {
@@ -248,63 +221,62 @@ type TaskRunnerDepth struct {
 	depth  int
 }
 
+// AreTaskDagsEqual ...
 // Figures out if DAGS are equal by performing breadth first search on each dag, sorting the
 // slice of tasks by depth then hash, then comparing the slices for equality.
 func AreTaskDagsEqual(task_dag1, task_dag2 task.TaskRunner) bool {
 
-	task_dag1_runner_levels := []TaskRunnerDepth{}
+	taskDag1RunnerLevels := []TaskRunnerDepth{}
 	runnerQ := queue.New()
 	runnerQ.PushBack(TaskRunnerDepth{task_dag1, 1})
 	for runnerQ.Len() > 0 {
 		curr := runnerQ.PopFront().(TaskRunnerDepth)
 		task.CreateAndSetTaskParams(curr.runner)
-		task_dag1_runner_levels = append(task_dag1_runner_levels, curr)
+		taskDag1RunnerLevels = append(taskDag1RunnerLevels, curr)
 		for _, child := range curr.runner.GetTask().Children {
 			runnerQ.PushBack(TaskRunnerDepth{child, curr.depth + 1})
 		}
 	}
 
 	// TODO: combine sorting methods to use one interface
-	sort.Slice(task_dag1_runner_levels, func(i, j int) bool {
-		if task_dag1_runner_levels[i].depth < task_dag1_runner_levels[j].depth {
+	sort.Slice(taskDag1RunnerLevels, func(i, j int) bool {
+		if taskDag1RunnerLevels[i].depth < taskDag1RunnerLevels[j].depth {
 			return true
 		}
-		if task_dag1_runner_levels[i].depth > task_dag1_runner_levels[j].depth {
+		if taskDag1RunnerLevels[i].depth > taskDag1RunnerLevels[j].depth {
 			return false
 		}
-		return task_dag1_runner_levels[i].runner.GetTask().GetHash() < task_dag1_runner_levels[j].runner.GetTask().GetHash()
+		return taskDag1RunnerLevels[i].runner.GetTask().GetHash() < taskDag1RunnerLevels[j].runner.GetTask().GetHash()
 	})
 
-	task_dag2_runner_levels := []TaskRunnerDepth{}
+	taskDag2RunnerLevels := []TaskRunnerDepth{}
 	runnerQ = queue.New()
 	runnerQ.PushBack(TaskRunnerDepth{task_dag2, 1})
 	for runnerQ.Len() > 0 {
 		curr := runnerQ.PopFront().(TaskRunnerDepth)
 		task.CreateAndSetTaskParams(curr.runner)
-		task_dag2_runner_levels = append(task_dag2_runner_levels, curr)
+		taskDag2RunnerLevels = append(taskDag2RunnerLevels, curr)
 		for _, child := range curr.runner.GetTask().Children {
 			runnerQ.PushBack(TaskRunnerDepth{child, curr.depth + 1})
 		}
 	}
 
-	sort.Slice(task_dag2_runner_levels, func(i, j int) bool {
-		if task_dag2_runner_levels[i].depth < task_dag2_runner_levels[j].depth {
+	sort.Slice(taskDag2RunnerLevels, func(i, j int) bool {
+		if taskDag2RunnerLevels[i].depth < taskDag2RunnerLevels[j].depth {
 			return true
 		}
-		if task_dag2_runner_levels[i].depth > task_dag2_runner_levels[j].depth {
+		if taskDag2RunnerLevels[i].depth > taskDag2RunnerLevels[j].depth {
 			return false
 		}
-		return task_dag2_runner_levels[i].runner.GetTask().GetHash() < task_dag2_runner_levels[j].runner.GetTask().GetHash()
+		return taskDag2RunnerLevels[i].runner.GetTask().GetHash() < taskDag2RunnerLevels[j].runner.GetTask().GetHash()
 	})
 
-	for i := 0; i < len(task_dag1_runner_levels); i++ {
-		if i > len(task_dag2_runner_levels) {
+	for i := 0; i < len(taskDag1RunnerLevels); i++ {
+		if i > len(taskDag2RunnerLevels) {
 			return false
 		}
-
-		r1 := task_dag1_runner_levels[i]
-		r2 := task_dag2_runner_levels[i]
-
+		r1 := taskDag1RunnerLevels[i]
+		r2 := taskDag2RunnerLevels[i]
 		if !(r1.runner.GetTask().GetHash() == r2.runner.GetTask().GetHash()) {
 			return false
 		}
@@ -313,11 +285,8 @@ func AreTaskDagsEqual(task_dag1, task_dag2 task.TaskRunner) bool {
 	return true
 }
 
-type TaskRunnerParentRecord struct {
-	Runner       task.TaskRunner
-	ParentRecord PlanktonRecord
-}
-
+// ReRun ...
+//
 func (ts *TaskScheduler) ReRun(schedulerUUID string) error {
 	// TODO: im not sure this is adequate enough. The goal here is to avoid
 	//       mutating a task runner that is already running
@@ -344,32 +313,35 @@ func (ts *TaskScheduler) ReRun(schedulerUUID string) error {
 	return nil
 }
 
-/*
-re creates previously scheduled task dag.  all tasks in a task dag runn share a scheduler uuid
+type taskRunnerParentRecord struct {
+	Runner       task.TaskRunner
+	ParentRecord PlanktonRecord
+}
 
-which is the expected input.  root_dag
-*/
-func ReCreateStoredDag(RootDAG task.TaskRunner, scheduler_uuid string) error {
+// ReCreateStoredDag ...
+// re creates previously scheduled task dag.  all tasks in a task dag runn share a scheduler uuid
+// which is the expected
+func ReCreateStoredDag(RootDAG task.TaskRunner, schedulerUUID string) error {
 	var records []PlanktonRecord
 	c := config.GetConfig()
-	c.DataBase.Where("scheduler_uuid = ?", scheduler_uuid).Find(&records)
+	c.DataBase.Where("scheduler_uuid = ?", schedulerUUID).Find(&records)
 	if len(records) < 1 {
-		return fmt.Errorf("No records for task dag %s", scheduler_uuid)
+		return fmt.Errorf("No records for task dag %s", schedulerUUID)
 	}
 
 	runnerQ := queue.New()
-	runnerQ.PushBack(TaskRunnerParentRecord{RootDAG, PlanktonRecord{}})
-	var curr TaskRunnerParentRecord
-	var task_record_to_restore PlanktonRecord
+	runnerQ.PushBack(taskRunnerParentRecord{RootDAG, PlanktonRecord{}})
+	var curr taskRunnerParentRecord
+	var taskRecordToRestore PlanktonRecord
 	var found bool
 	for runnerQ.Len() > 0 {
-		curr = runnerQ.PopFront().(TaskRunnerParentRecord)
+		curr = runnerQ.PopFront().(taskRunnerParentRecord)
 
 		// incase found was already initalized
 		found = false
 		for i, record := range records {
 			if record.ParentHash == curr.ParentRecord.TaskHash {
-				task_record_to_restore = record
+				taskRecordToRestore = record
 				// remove record from records list...we wont use it again
 				records = append(records[:i], records[i+1:]...)
 				found = true
@@ -383,20 +355,20 @@ func ReCreateStoredDag(RootDAG task.TaskRunner, scheduler_uuid string) error {
 			return fmt.Errorf("couldnt find a plankton record to restore to dag, check that your dag is correct")
 		}
 
-		task.CreateAndSetTaskParamsFromHash(curr.Runner, task_record_to_restore.TaskParams)
-		curr.Runner.GetTask().Name = task_record_to_restore.TaskName
+		task.CreateAndSetTaskParamsFromHash(curr.Runner, taskRecordToRestore.TaskParams)
+		curr.Runner.GetTask().Name = taskRecordToRestore.TaskName
 		for _, child := range curr.Runner.GetTask().Children {
 			// TODO: do we need to set parent here? will be set when it's run by scheduler
 			child.GetTask().Parent = curr.Runner
-			runnerQ.PushBack(TaskRunnerParentRecord{child, task_record_to_restore})
+			runnerQ.PushBack(taskRunnerParentRecord{child, taskRecordToRestore})
 		}
-
 	}
-
 	return nil
-
 }
 
+// PlanktonRecord ...
+// The gorm model used to save meta data for each run, enabled by passing
+//
 type PlanktonRecord struct {
 	gorm.Model
 	TaskName      string
@@ -411,20 +383,24 @@ type PlanktonRecord struct {
 	EndedAt       time.Time
 	Version       string
 }
-type Result struct {
+
+type result struct {
 	SchedulerUUID string
 	Start         string
 	End           string
 	Version       string
 }
 
-func (ts *TaskScheduler) LastRecords() []Result {
+// LastRecords ...
+//
+// Returns list of all plankton meta data results
+func (ts *TaskScheduler) LastRecords() []result {
 	c := config.GetConfig()
-	results := []Result{}
+	results := []result{}
 	c.DataBase.Table("plankton_records").
-		Select("scheduler_uuid, min(started_at) as start, max(ended_at) as end, version").
+		Select("schedulerUUID  min(started_at) as start, max(ended_at) as end, version").
 		Where("scheduler_name = ?", ts.Name).
-		Group("scheduler_uuid, version").
+		Group("schedulerUUID  version").
 		Order("ended_at desc").
 		Scan(&results)
 	return results
@@ -446,43 +422,43 @@ func (ts *TaskScheduler) recordDAGRun() {
 	c := config.GetConfig()
 	c.DataBase.AutoMigrate(PlanktonRecord{})
 
-	root_task := ts.RootRunner.GetTask()
-	task_queue := []*task.Task{}
-	task_queue = append(task_queue, root_task)
-	for len(task_queue) > 0 {
-		curr := task_queue[0]
-		task_queue = task_queue[1:]
-		execution_time := curr.End.Sub(curr.Start)
+	taskRoot := ts.RootRunner.GetTask()
+	taskQ := []*task.Task{}
+	taskQ = append(taskQ, taskRoot)
+	for len(taskQ) > 0 {
+		curr := taskQ[0]
+		taskQ = taskQ[1:]
+		executionTime := curr.End.Sub(curr.Start)
 
-		var parent_hash string
+		var parentHash string
 		if curr.Parent != nil {
-			parent_hash = curr.Parent.GetTask().GetHash()
+			parentHash = curr.Parent.GetTask().GetHash()
 		}
 
-		var child_hash string
+		var childHash string
 		if len(curr.Children) > 0 {
-			child_hashes := []string{}
+			childHashes := []string{}
 			for _, child := range curr.Children {
-				child_hashes = append(child_hashes, child.GetTask().GetHash())
+				childHashes = append(childHashes, child.GetTask().GetHash())
 			}
-			child_hash = strings.Join(child_hashes, ",")
+			childHash = strings.Join(childHashes, ",")
 		}
-		new_plankton_record := PlanktonRecord{
+		newPlanktonRecord := PlanktonRecord{
 			TaskName:      curr.Name,
 			TaskParams:    curr.GetSerializedParams(),
 			TaskHash:      curr.GetHash(),
-			ParentHash:    parent_hash,
-			ChildHashes:   child_hash,
+			ParentHash:    parentHash,
+			ChildHashes:   childHash,
 			SchedulerUUID: ts.uuid.String(),
 			SchedulerName: ts.Name,
-			ExecutionTime: execution_time.Seconds(),
+			ExecutionTime: executionTime.Seconds(),
 			StartedAt:     curr.Start,
 			EndedAt:       curr.End,
 			Version:       c.Version,
 		}
-		c.DataBase.Create(&new_plankton_record)
+		c.DataBase.Create(&newPlanktonRecord)
 		for _, child := range curr.Children {
-			task_queue = append(task_queue, child.GetTask())
+			taskQ = append(taskQ, child.GetTask())
 		}
 	}
 

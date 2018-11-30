@@ -73,5 +73,4 @@ func scratch() {
 
 func main() {
 	runSchedulers()
-
 }

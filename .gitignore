@@ -12,3 +12,5 @@
 *.out
 
 config.yaml
+
+.vscode/
