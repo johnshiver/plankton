@@ -23,6 +23,12 @@ const (
 	RUNNING = "running"
 )
 
+func init() {
+	// TODO: surely there is a better way to do this
+	c := config.GetConfig()
+	c.DataBase.AutoMigrate(PlanktonRecord{})
+}
+
 // TaskScheduler ...
 // The object responsible for taking the root node of a task DAG and running it via the Start() method.
 type TaskScheduler struct {
@@ -384,7 +390,9 @@ type PlanktonRecord struct {
 	Version       string
 }
 
-type result struct {
+// Result ...
+// Object whose data encapsulates a single task dag run
+type Result struct {
 	SchedulerUUID string
 	Start         string
 	End           string
@@ -394,9 +402,9 @@ type result struct {
 // LastRecords ...
 //
 // Returns list of all plankton meta data results
-func (ts *TaskScheduler) LastRecords() []result {
+func (ts *TaskScheduler) LastRecords() []Result {
 	c := config.GetConfig()
-	results := []result{}
+	results := []Result{}
 	c.DataBase.Table("plankton_records").
 		Select("schedulerUUID  min(started_at) as start, max(ended_at) as end, version").
 		Where("scheduler_name = ?", ts.Name).
@@ -404,11 +412,6 @@ func (ts *TaskScheduler) LastRecords() []result {
 		Order("ended_at desc").
 		Scan(&results)
 	return results
-}
-
-func init() {
-	c := config.GetConfig()
-	c.DataBase.AutoMigrate(PlanktonRecord{})
 }
 
 func (ts *TaskScheduler) recordDAGRun() {

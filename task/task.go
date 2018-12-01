@@ -80,15 +80,25 @@ func makeStringHash(s string) uint32 {
 
 }
 
+// GetHash ...
+// Returns a hash representation of the task.  The elements that comprise the hash are
+//
+//  1. Task.Name
+//  2. Serialized Task Params
+//  3. All Child Serialized Params
+//
+//  These elements are joined together and hashed, which creates a fairly unique value.
+//  This is used primarily to rebuild a TaskRunner from its metadata table or determine
+//  whether two task DAGs are equal.
 func (ts *Task) GetHash() string {
-	strings_to_hash := []string{}
-	strings_to_hash = append(strings_to_hash, ts.Name)
-	strings_to_hash = append(strings_to_hash, ts.GetSerializedParams())
+	stringsToHash := []string{}
+	stringsToHash = append(stringsToHash, ts.Name)
+	stringsToHash = append(stringsToHash, ts.GetSerializedParams())
 	for _, child := range ts.Children {
-		strings_to_hash = append(strings_to_hash, child.GetTask().GetSerializedParams())
+		stringsToHash = append(stringsToHash, child.GetTask().GetSerializedParams())
 	}
-	string_to_hash := strings.Join(strings_to_hash, "")
-	return fmt.Sprintf("%v", (makeStringHash(string_to_hash)))
+	finalHash := strings.Join(stringsToHash, "")
+	return fmt.Sprintf("%v", (makeStringHash(finalHash)))
 }
 
 /*
@@ -118,13 +128,11 @@ This is useful for storing the state of each Task that is run in the dag, and ca
     This function uses a lot of reflection / is kind of tricky. Would be good to document
     exactly how this works because I constantly forget what these variables mean :P
 */
-
-// TODO: i think this method needs a rename
 func (ts *Task) GetSerializedParams() string {
 
-	param_strings := []string{}
+	paramStrings := []string{}
 	for _, param := range ts.Params {
-		var data_val, data_type string
+		var dataVal, dataType string
 
 		// TODO: Should support all types in SetParam
 		//       maybe there is a way to combine the logic
@@ -134,99 +142,99 @@ func (ts *Task) GetSerializedParams() string {
 		//       with another command
 		switch param.Data.Kind() {
 		case reflect.Int:
-			data_val = fmt.Sprintf("%v", param.Data.Int())
-			data_type = "INT"
+			dataVal = fmt.Sprintf("%v", param.Data.Int())
+			dataType = "INT"
 		case reflect.String:
-			data_val = param.Data.String()
-			data_type = "STR"
+			dataVal = param.Data.String()
+			dataType = "STR"
 		default:
 			// TODO: think about what to do in this case
 			fmt.Printf("Param %s not included in the serialized task, its type is not currently supported.\n", param.Name)
 		}
 
-		param_serializer_elements := []string{
+		paramSerializerElements := []string{
 			param.Name,
-			data_type,
-			data_val,
+			dataType,
+			dataVal,
 		}
-		param_strings = append(param_strings, strings.Join(param_serializer_elements, ":"))
+		paramStrings = append(paramStrings, strings.Join(paramSerializerElements, ":"))
 	}
-	return strings.Join(param_strings, "_")
+	return strings.Join(paramStrings, "_")
 
 }
 
-func DeserializeTaskParams(serialized_pr string) ([]*TaskParam, error) {
-	deserialized_task_params := []*TaskParam{}
-	if len(serialized_pr) < 1 {
-		return deserialized_task_params, nil
+func DeserializeTaskParams(serializedTaskParams string) ([]*TaskParam, error) {
+	deserializedTaskParams := []*TaskParam{}
+	if len(serializedTaskParams) < 1 {
+		return deserializedTaskParams, nil
 	}
-	hashed_params := strings.Split(serialized_pr, "_")
-	for _, param := range hashed_params {
-		split_vals := strings.Split(param, ":")
-		name, d_type, d_val := split_vals[0], split_vals[1], split_vals[2]
-		var final_val reflect.Value
+	hashedParams := strings.Split(serializedTaskParams, "_")
+	for _, param := range hashedParams {
+		splitVals := strings.Split(param, ":")
+		name, dType, dVal := splitVals[0], splitVals[1], splitVals[2]
+		var finalVal reflect.Value
 
-		switch d_type {
+		switch dType {
 		case "INT":
-			final_int, err := strconv.Atoi(d_val)
+			finalInt, err := strconv.Atoi(dVal)
 			if err != nil {
-				fmt.Errorf("Error creating int from serialized Task Param!")
-				return nil, err
+				return nil, fmt.Errorf("Error creating int from serialized Task Param")
 			}
-			final_val = reflect.ValueOf(final_int)
+			finalVal = reflect.ValueOf(finalInt)
 		case "STR":
-			final_val = reflect.ValueOf(d_val)
+			finalVal = reflect.ValueOf(dVal)
 		default:
-			spew.Println(final_val)
+			spew.Println(finalVal)
 			fmt.Println("Not supported yet")
 			continue
 		}
 
-		new_param := &TaskParam{
+		newParam := &TaskParam{
 			Name: name,
-			Data: final_val,
+			Data: finalVal,
 		}
-		deserialized_task_params = append(deserialized_task_params, new_param)
+		deserializedTaskParams = append(deserializedTaskParams, newParam)
 
 	}
-	return deserialized_task_params, nil
+	return deserializedTaskParams, nil
 
 }
 
+// CreateAndSetTaskParams ...
 // Uses reflection to inspect struct elements for 'task_param' tag
 // and sets tr.Task.Params accordingly
 func CreateAndSetTaskParams(tr TaskRunner) ([]*TaskParam, error) {
 
 	const TASK_PARAM_TAG = "task_param"
-	var task_params []*TaskParam
+	var taskParams []*TaskParam
 
 	v := reflect.ValueOf(tr).Elem()
 	for i := 0; i < v.NumField(); i++ {
-		field_info := v.Type().Field(i)
-		tag := field_info.Tag
+		fieldInfo := v.Type().Field(i)
+		tag := fieldInfo.Tag
 		_, ok := tag.Lookup(TASK_PARAM_TAG)
 		if ok {
-			new_param := TaskParam{
-				Name: field_info.Name,
-				Data: getFieldValue(tr, field_info.Name),
+			newParam := TaskParam{
+				Name: fieldInfo.Name,
+				Data: getFieldValue(tr, fieldInfo.Name),
 			}
-			task_params = append(task_params, &new_param)
+			taskParams = append(taskParams, &newParam)
 
 		}
 	}
 
-	tr.GetTask().Params = task_params
+	tr.GetTask().Params = taskParams
 	return tr.GetTask().Params, nil
 }
 
-func getFieldValue(tr TaskRunner, field_name string) reflect.Value {
+func getFieldValue(tr TaskRunner, fieldName string) reflect.Value {
 	// TODO: check this works on different types other than int
-	tr_reflect := reflect.ValueOf(tr)
-	field_val := reflect.Indirect(tr_reflect).FieldByName(field_name)
-	return field_val
-
+	trReflect := reflect.ValueOf(tr)
+	fieldVal := reflect.Indirect(trReflect).FieldByName(fieldName)
+	return fieldVal
 }
 
+// CreateTaskRunnerFromParams ...
 // Given Params and a TaskRunner, sets all TaskRunner fields marked as param
 // Note: The struct satisfying the TaskRunner interface MUST be passed to this function
 // as a reference.  See these articles for a more thorough explanation:
@@ -240,13 +248,13 @@ func CreateTaskRunnerFromParams(tr TaskRunner, params []*TaskParam) error {
 	// TODO: make this var name consistent with the one used above
 	stype := reflect.ValueOf(tr).Elem()
 
-	param_name_value_map := map[string]reflect.Value{}
+	paramNameValueMap := map[string]reflect.Value{}
 	for _, param := range params {
-		param_name_value_map[param.Name] = param.Data
+		paramNameValueMap[param.Name] = param.Data
 	}
 
 	if stype.Kind() == reflect.Struct {
-		for name, val := range param_name_value_map {
+		for name, val := range paramNameValueMap {
 			f := stype.FieldByName(name)
 			if f.CanSet() {
 				// TODO: support more kinds of fields
@@ -257,7 +265,7 @@ func CreateTaskRunnerFromParams(tr TaskRunner, params []*TaskParam) error {
 					f.SetString(val.String())
 				default:
 					// TODO: think about what to do in this case
-					return fmt.Errorf("%s not supported as TaskParam yet!", f.Kind())
+					return fmt.Errorf("%s not supported as TaskParam yet", f.Kind())
 				}
 
 			} else {
@@ -270,17 +278,19 @@ func CreateTaskRunnerFromParams(tr TaskRunner, params []*TaskParam) error {
 
 }
 
-func CreateAndSetTaskParamsFromHash(tr TaskRunner, param_hash string) error {
+// CreateAndSetTaskParamsFromHash ....
+//
+func CreateAndSetTaskParamsFromHash(tr TaskRunner, paramHash string) error {
 	if tr.GetTask() == nil {
 		return fmt.Errorf("tr %v didnt have task set", tr)
 	}
 
-	task_params, err := DeserializeTaskParams(param_hash)
+	taskParams, err := DeserializeTaskParams(paramHash)
 	if err != nil {
 		return err
 	}
 
-	err = CreateTaskRunnerFromParams(tr, task_params)
+	err = CreateTaskRunnerFromParams(tr, taskParams)
 	if err != nil {
 		return err
 	}
@@ -290,6 +300,8 @@ func CreateAndSetTaskParamsFromHash(tr TaskRunner, param_hash string) error {
 
 }
 
+// AddChildren ...
+//
 func (ts *Task) AddChildren(children ...TaskRunner) []TaskRunner {
 	ts.mux.Lock()
 	defer ts.mux.Unlock()
@@ -309,7 +321,12 @@ func (ts *Task) AddChildren(children ...TaskRunner) []TaskRunner {
 	return ts.Children
 }
 
+// SetState ...
+//
 func (ts *Task) SetState(newState string) (string, error) {
+	ts.mux.Lock()
+	defer ts.mux.Unlock()
+
 	validStates := []string{
 		WAITING, RUNNING, COMPLETE,
 	}
@@ -337,6 +354,7 @@ func SetParents(tRunner TaskRunner) {
 	}
 }
 
+// RunTaskRunner ...
 // Runs a TaskRunner, sets state and notifies waiting group when run is done
 func RunTaskRunner(tRunner TaskRunner, wg *sync.WaitGroup, TokenReturn chan struct{}) {
 	// TODO: add that failsafe i read in rob fig's cron project
@@ -375,6 +393,8 @@ func RunTaskRunner(tRunner TaskRunner, wg *sync.WaitGroup, TokenReturn chan stru
 	}
 }
 
+// SetTaskPriorities ...
+//
 func SetTaskPriorities(rootTask *Task) error {
 	/*
 	   Runs DFS on rootTask of task DAG to set task priorities order of precedence
@@ -382,7 +402,7 @@ func SetTaskPriorities(rootTask *Task) error {
 	*/
 	goodDag := verifyDAG(rootTask)
 	if !goodDag {
-		return fmt.Errorf("Root task runner isnt a valid Task DAG\n")
+		return fmt.Errorf("Root task runner isnt a valid Task DAG")
 	}
 	currPriority := 0
 	var setTaskPriorities func(root *Task)
@@ -392,7 +412,7 @@ func SetTaskPriorities(rootTask *Task) error {
 		}
 		root.Priority = currPriority
 		root.Logger.Printf("Priority set: %d\n", root.Priority)
-		currPriority += 1
+		currPriority++
 	}
 
 	setTaskPriorities(rootTask)
@@ -425,6 +445,7 @@ func verifyDAG(rootTask *Task) bool {
 	return true
 }
 
+// ResetDAGResultChannels ...
 // Need to recreate result channels after each scheduler run, because they are close
 // in RunTaskRunner
 func ResetDAGResultChannels(RootRunner TaskRunner) {
@@ -440,6 +461,8 @@ func ResetDAGResultChannels(RootRunner TaskRunner) {
 	}
 }
 
+// ClearDAGState ...
+//
 func ClearDAGState(RootRunner TaskRunner) {
 	runnerQ := queue.New()
 	runnerQ.PushBack(RootRunner)
