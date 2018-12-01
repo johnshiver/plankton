@@ -33,17 +33,17 @@ func compareTestTaskParams(a, b *TestTask) bool {
 }
 
 func createTestTaskRunner(name, x string, n int) *TestTask {
-	new_runner := TestTask{
+	newRunner := TestTask{
 		task.NewTask(name),
 		n,
 		x,
 		0,
 	}
-	return &new_runner
+	return &newRunner
 
 }
 
-var test_config config.Config
+var testConfig config.Config
 
 /*
 Function that can do setup / tear down for tests
@@ -52,12 +52,12 @@ https://golang.org/pkg/testing/#hdr-Main
 */
 func TestMain(m *testing.M) {
 	config.SetDatabaseConfig(config.TEST_SQLITE_DATABASE)
-	test_config = config.GetConfig()
-	test_config.DataBase.AutoMigrate(PlanktonRecord{})
-	exit_code := m.Run()
+	testConfig = config.GetConfig()
+	testConfig.DataBase.AutoMigrate(PlanktonRecord{})
+	exitCode := m.Run()
 
-	test_config.DataBase.DropTable(&PlanktonRecord{})
-	os.Exit(exit_code)
+	testConfig.DataBase.DropTable(&PlanktonRecord{})
+	os.Exit(exitCode)
 }
 
 func TestSaveSchedulerDag(t *testing.T) {
@@ -66,25 +66,25 @@ func TestSaveSchedulerDag(t *testing.T) {
 	t3 := createTestTaskRunner("t3", "test3", 2)
 	t1.GetTask().AddChildren(t2, t3)
 	// create scheduler that doesnt print to standard out
-	test_scheduler, err := NewTaskScheduler("TestScheduler", "", t1, true)
+	testScheduler, err := NewTaskScheduler("TestScheduler", "", t1, true)
 	if err != nil {
 		t.Errorf("Received error from task scheduler %v", err)
 	}
-	test_scheduler.Start()
+	testScheduler.Start()
 
 	var records []PlanktonRecord
-	test_config.DataBase.Where("scheduler_uuid = ?", test_scheduler.uuid.String()).Find(&records)
+	testConfig.DataBase.Where("scheduler_uuid = ?", testScheduler.uuid.String()).Find(&records)
 	if len(records) < 1 {
 		t.Errorf("Failed to create test records")
 	}
 
-	record_map := make(map[string]PlanktonRecord)
+	recordMap := make(map[string]PlanktonRecord)
 	for _, record := range records {
-		record_map[record.TaskName] = record
+		recordMap[record.TaskName] = record
 	}
 
 	// test params
-	var param_tests = []struct {
+	var paramTests = []struct {
 		input string
 		want  string
 	}{
@@ -92,15 +92,15 @@ func TestSaveSchedulerDag(t *testing.T) {
 		{"t2", t2.GetSerializedParams()},
 		{"t3", t3.GetSerializedParams()},
 	}
-	for _, test := range param_tests {
-		record := record_map[test.input]
+	for _, test := range paramTests {
+		record := recordMap[test.input]
 		if record.TaskParams != test.want {
 			t.Errorf("%s record stored %s, wanted %s", test.input, record.TaskParams, test.want)
 		}
 	}
 
 	// test hashes
-	var hash_tests = []struct {
+	var hashTests = []struct {
 		input string
 		want  string
 	}{
@@ -108,15 +108,15 @@ func TestSaveSchedulerDag(t *testing.T) {
 		{"t2", t2.GetHash()},
 		{"t3", t3.GetHash()},
 	}
-	for _, test := range hash_tests {
-		record := record_map[test.input]
+	for _, test := range hashTests {
+		record := recordMap[test.input]
 		if record.TaskHash != test.want {
 			t.Errorf("%s record stored %s, wanted %s", test.input, record.TaskHash, test.want)
 		}
 	}
 
 	// test parent hashes
-	var parent_tests = []struct {
+	var parentTests = []struct {
 		input string
 		want  string
 	}{
@@ -124,8 +124,8 @@ func TestSaveSchedulerDag(t *testing.T) {
 		{"t2", t1.GetHash()},
 		{"t3", t1.GetHash()},
 	}
-	for _, test := range parent_tests {
-		record := record_map[test.input]
+	for _, test := range parentTests {
+		record := recordMap[test.input]
 		if record.ParentHash != test.want {
 			t.Errorf("%s record stored %s, wanted %s", test.input, record.TaskHash, test.want)
 		}
@@ -186,31 +186,31 @@ func TestRecreateStoredDag(t *testing.T) {
 	t3 := createTestTaskRunner("t3", "test3", 2)
 	t1.GetTask().AddChildren(t2, t3)
 	// create scheduler that doesnt print to standard out
-	test_scheduler, err := NewTaskScheduler("TestScheduler", "", t1, true)
+	testScheduler, err := NewTaskScheduler("TestScheduler", "", t1, true)
 	if err != nil {
 		t.Errorf("Received error from task scheduler %v", err)
 	}
-	test_scheduler.Start()
-	first_scheduler_uuid := test_scheduler.uuid.String()
+	testScheduler.Start()
+	firstSchedulerUUID := testScheduler.uuid.String()
 
-	revived_test1 := createTestTaskRunner("", "999999", 0)
-	revived_test2 := createTestTaskRunner("", "", 0)
-	revived_test3 := createTestTaskRunner("", "", 0)
-	revived_test3.AddChildren(revived_test1, revived_test2)
+	revivedTest1 := createTestTaskRunner("", "999999", 0)
+	revivedTest2 := createTestTaskRunner("", "", 0)
+	revivedTest3 := createTestTaskRunner("", "", 0)
+	revivedTest3.AddChildren(revivedTest1, revivedTest2)
 
-	if AreTaskDagsEqual(t1, revived_test3) {
+	if AreTaskDagsEqual(t1, revivedTest3) {
 		t.Errorf("Task dags are equal, something went wrong")
 	}
 
-	err = ReCreateStoredDag(revived_test3, first_scheduler_uuid)
+	err = ReCreateStoredDag(revivedTest3, firstSchedulerUUID)
 	if err != nil {
 		t.Error(err)
 	}
 
-	if !AreTaskDagsEqual(t1, revived_test3) {
+	if !AreTaskDagsEqual(t1, revivedTest3) {
 		t.Errorf("Task dags were not equal, recreation of stored dag failed")
-		// spew.Dump(revived_test3)
-		//spew.Dump(first_scheduler_uuid)
+		// spew.Dump(revivedTest3)
+		//spew.Dump(firstSchedulerUUID )
 	}
 
 }

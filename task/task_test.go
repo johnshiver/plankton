@@ -7,7 +7,6 @@ import (
 	"github.com/davecgh/go-spew/spew"
 )
 
-// TODO: make task param flag nicer
 type TestTask struct {
 	*Task
 
@@ -46,34 +45,34 @@ func createTestTaskRunner(name string, n int) *TestTask {
 func TestVerifyDAG(t *testing.T) {
 	// TODO: add more variations of bad dags
 
-	good_dag := createTestTaskRunner("good_dag", 1)
+	goodDag := createTestTaskRunner("goodDag", 1)
 	test2 := createTestTaskRunner("test2", 1)
 	test3 := createTestTaskRunner("test3", 1)
 
-	good_dag.GetTask().Children = []TaskRunner{
+	goodDag.GetTask().Children = []TaskRunner{
 		test2,
 		test3,
 	}
 
-	bad_dag := createTestTaskRunner("bad_dag", 1)
+	badDag := createTestTaskRunner("badDag", 1)
 	test4 := createTestTaskRunner("test4", 1)
 	test5 := createTestTaskRunner("test5", 1)
 
-	bad_dag.GetTask().Children = []TaskRunner{
+	badDag.GetTask().Children = []TaskRunner{
 		test4,
 		test5,
 	}
 
 	test4.GetTask().Children = []TaskRunner{
-		bad_dag,
+		badDag,
 	}
 
 	var tests = []struct {
 		input *Task
 		want  bool
 	}{
-		{good_dag.GetTask(), true},
-		{bad_dag.GetTask(), false},
+		{goodDag.GetTask(), true},
+		{badDag.GetTask(), false},
 	}
 	for _, test := range tests {
 		if output := verifyDAG(test.input); output != test.want {
@@ -143,18 +142,18 @@ func TestGetSerializedParams(t *testing.T) {
 		{[]TaskRunner{test7, test8}, false},
 	}
 	for _, test := range tests {
-		serialized_task_params := []string{}
+		serializedTaskParams := []string{}
 		for _, runner := range test.input {
 			CreateAndSetTaskParams(runner)
-			serialized_task_params = append(serialized_task_params, runner.GetTask().GetSerializedParams())
+			serializedTaskParams = append(serializedTaskParams, runner.GetTask().GetSerializedParams())
 		}
 
-		s_param1, s_param2 := serialized_task_params[0], serialized_task_params[1]
-		result := s_param1 == s_param2
+		sParam1, sParam2 := serializedTaskParams[0], serializedTaskParams[1]
+		result := sParam1 == sParam2
 
 		if result != test.want {
-			test_input := spew.Sdump(test.input)
-			t.Errorf("GetSerializedParams Failed %s got %v not %v", string(test_input), result, test.want)
+			testInput := spew.Sdump(test.input)
+			t.Errorf("GetSerializedParams Failed %s got %v not %v", string(testInput), result, test.want)
 		}
 	}
 
@@ -193,16 +192,16 @@ func TestGetHash(t *testing.T) {
 		{[]TaskRunner{test7, test8}, false},
 	}
 	for _, test := range tests {
-		task_hashes := []string{}
+		taskHashes := []string{}
 		for _, runner := range test.input {
-			task_hashes = append(task_hashes, runner.GetTask().GetHash())
+			taskHashes = append(taskHashes, runner.GetTask().GetHash())
 		}
 
-		first_hash, second_hash := task_hashes[0], task_hashes[1]
-		result := first_hash == second_hash
+		firstHash, secondHash := taskHashes[0], taskHashes[1]
+		result := firstHash == secondHash
 
 		if result != test.want {
-			t.Errorf("GetHash Failed got %v not %v: hash1 %s hash2 %s", result, test.want, first_hash, second_hash)
+			t.Errorf("GetHash Failed got %v not %v: hash1 %s hash2 %s", result, test.want, firstHash, secondHash)
 		}
 	}
 
@@ -212,52 +211,52 @@ func TestCreateTaskRunnerFromParams(t *testing.T) {
 	test1 := createTestTaskRunner("test1", 1)
 	// modify default value
 	test1.N = 25
-	task_params, _ := CreateAndSetTaskParams(test1)
-	test1_clone := createTestTaskRunner("test1_clone", 1)
+	taskParams, _ := CreateAndSetTaskParams(test1)
+	test1Clone := createTestTaskRunner("test1Clone", 1)
 	// TODO: re-name this Function
-	CreateTaskRunnerFromParams(test1_clone, task_params)
-	if !compareTestTaskParams(test1, test1_clone) {
-		t.Errorf("CreateTaskRunnerFromParams failed to clone, %v instead of %v", test1_clone, test1)
+	CreateTaskRunnerFromParams(test1Clone, taskParams)
+	if !compareTestTaskParams(test1, test1Clone) {
+		t.Errorf("CreateTaskRunnerFromParams failed to clone, %v instead of %v", test1Clone, test1)
 	}
 
 }
 
 func TestCreateParamFromSerializedParam(t *testing.T) {
-	serialized_task_param1 := "Foop:INT:5"
-	task_params, _ := DeserializeTaskParams(serialized_task_param1)
-	new_task_param := task_params[0]
-	if new_task_param.Name != "Foop" {
+	serializedTaskParam1 := "Foop:INT:5"
+	taskParams, _ := DeserializeTaskParams(serializedTaskParam1)
+	newTaskParam := taskParams[0]
+	if newTaskParam.Name != "Foop" {
 		t.Errorf("Failed to set correct name on TaskParam %s", "Foop")
 	}
-	if new_task_param.Data.Int() != 5 {
+	if newTaskParam.Data.Int() != 5 {
 		t.Errorf("Failed to set correct value on TaskParam %d", 5)
 	}
 
-	serialized_task_param2 := "Poof:STR:HEYA"
-	task_params, _ = DeserializeTaskParams(serialized_task_param2)
-	new_task_param = task_params[0]
-	if new_task_param.Name != "Poof" {
-		t.Errorf("Failed to set correct name on TaskParam expected: %s got: %s", "Poof", new_task_param.Name)
+	serializedTaskParam2 := "Poof:STR:HEYA"
+	taskParams, _ = DeserializeTaskParams(serializedTaskParam2)
+	newTaskParam = taskParams[0]
+	if newTaskParam.Name != "Poof" {
+		t.Errorf("Failed to set correct name on TaskParam expected: %s got: %s", "Poof", newTaskParam.Name)
 	}
-	if new_task_param.Data.String() != "HEYA" {
-		t.Errorf("Failed to set correct value on TaskParam, expected: %s got:%s", "HEYA", new_task_param.Data.String())
+	if newTaskParam.Data.String() != "HEYA" {
+		t.Errorf("Failed to set correct value on TaskParam, expected: %s got:%s", "HEYA", newTaskParam.Data.String())
 	}
 
 }
 
 func TestCreateTaskRunnerFromHash(t *testing.T) {
 	// TODO: add string param
-	serialized_task_param1 := "N:INT:5_X:STR:HEYA"
-	test_1 := createTestTaskRunner("test1", 0)
-	_ = CreateAndSetTaskParamsFromHash(test_1, serialized_task_param1)
-	if test_1.N != 5 {
-		t.Errorf("Failed to set N on test struct %d", test_1.N)
+	serializedTaskParam1 := "N:INT:5_X:STR:HEYA"
+	test1 := createTestTaskRunner("test1", 0)
+	_ = CreateAndSetTaskParamsFromHash(test1, serializedTaskParam1)
+	if test1.N != 5 {
+		t.Errorf("Failed to set N on test struct %d", test1.N)
 	}
-	if test_1.X != "HEYA" {
-		t.Errorf("Failed to set X on test struct %s", test_1.X)
+	if test1.X != "HEYA" {
+		t.Errorf("Failed to set X on test struct %s", test1.X)
 	}
-	if test_1.GetSerializedParams() != serialized_task_param1 {
-		t.Errorf("Serialized params dont match restored task runner params, %s -> %s", test_1.GetSerializedParams(), serialized_task_param1)
+	if test1.GetSerializedParams() != serializedTaskParam1 {
+		t.Errorf("Serialized params dont match restored task runner params, %s -> %s", test1.GetSerializedParams(), serializedTaskParam1)
 
 	}
 

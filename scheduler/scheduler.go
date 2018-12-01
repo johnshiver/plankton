@@ -230,11 +230,11 @@ type TaskRunnerDepth struct {
 // AreTaskDagsEqual ...
 // Figures out if DAGS are equal by performing breadth first search on each dag, sorting the
 // slice of tasks by depth then hash, then comparing the slices for equality.
-func AreTaskDagsEqual(task_dag1, task_dag2 task.TaskRunner) bool {
+func AreTaskDagsEqual(taskDag1, taskDag2 task.TaskRunner) bool {
 
 	taskDag1RunnerLevels := []TaskRunnerDepth{}
 	runnerQ := queue.New()
-	runnerQ.PushBack(TaskRunnerDepth{task_dag1, 1})
+	runnerQ.PushBack(TaskRunnerDepth{taskDag1, 1})
 	for runnerQ.Len() > 0 {
 		curr := runnerQ.PopFront().(TaskRunnerDepth)
 		task.CreateAndSetTaskParams(curr.runner)
@@ -257,7 +257,7 @@ func AreTaskDagsEqual(task_dag1, task_dag2 task.TaskRunner) bool {
 
 	taskDag2RunnerLevels := []TaskRunnerDepth{}
 	runnerQ = queue.New()
-	runnerQ.PushBack(TaskRunnerDepth{task_dag2, 1})
+	runnerQ.PushBack(TaskRunnerDepth{taskDag2, 1})
 	for runnerQ.Len() > 0 {
 		curr := runnerQ.PopFront().(TaskRunnerDepth)
 		task.CreateAndSetTaskParams(curr.runner)
@@ -343,7 +343,7 @@ func ReCreateStoredDag(RootDAG task.TaskRunner, schedulerUUID string) error {
 	for runnerQ.Len() > 0 {
 		curr = runnerQ.PopFront().(taskRunnerParentRecord)
 
-		// incase found was already initalized
+		// incase found was already initialized
 		found = false
 		for i, record := range records {
 			if record.ParentHash == curr.ParentRecord.TaskHash {
