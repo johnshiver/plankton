@@ -177,11 +177,11 @@ func RunTaskRunner(tRunner TaskRunner, wg *sync.WaitGroup, TokenReturn chan stru
 		select {
 		case token = <-tRunner.GetTask().WorkerTokens:
 			tRunner.GetTask().Logger.Printf("Starting task")
-			tRunner.GetTask().Start = time.Now()
+			tRunner.GetTask().SetStart(time.Now())
 			tRunner.GetTask().SetState(RUNNING)
 			tRunner.Run()
 			tRunner.GetTask().SetState(COMPLETE)
-			tRunner.GetTask().End = time.Now()
+			tRunner.GetTask().SetEnd(time.Now())
 			tRunner.GetTask().Logger.Printf("Task finished")
 			TokenReturn <- token
 			done = true
@@ -213,8 +213,8 @@ func ClearDAGState(RootRunner TaskRunner) {
 	for runnerQ.Len() > 0 {
 		curr := runnerQ.PopFront().(TaskRunner)
 		curr.GetTask().DataProcessed = 0
-		curr.GetTask().Start = time.Time{}
-		curr.GetTask().End = time.Time{}
+		curr.GetTask().SetStart(time.Time{})
+		curr.GetTask().SetEnd(time.Time{})
 
 		for _, child := range curr.GetTask().Children {
 			runnerQ.PushBack(child)

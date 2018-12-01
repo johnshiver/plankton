@@ -431,7 +431,7 @@ func (ts *TaskScheduler) recordDAGRun() {
 	for len(taskQ) > 0 {
 		curr := taskQ[0]
 		taskQ = taskQ[1:]
-		executionTime := curr.End.Sub(curr.Start)
+		executionTime := curr.End().Sub(curr.Start())
 
 		var parentHash string
 		if curr.Parent != nil {
@@ -455,8 +455,8 @@ func (ts *TaskScheduler) recordDAGRun() {
 			SchedulerUUID: ts.uuid.String(),
 			SchedulerName: ts.Name,
 			ExecutionTime: executionTime.Seconds(),
-			StartedAt:     curr.Start,
-			EndedAt:       curr.End,
+			StartedAt:     curr.Start(),
+			EndedAt:       curr.End(),
 			Version:       c.Version,
 		}
 		c.DataBase.Create(&newPlanktonRecord)

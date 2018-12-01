@@ -21,6 +21,8 @@ const (
 	COMPLETE = "complete"
 )
 
+// Task ...
+//
 type Task struct {
 	Name           string
 	Children       []TaskRunner
@@ -30,8 +32,8 @@ type Task struct {
 	State          string
 	Priority       int
 	Params         []*TaskParam
-	Start          time.Time
-	End            time.Time
+	start          time.Time
+	end            time.Time
 	DataProcessed  int
 	Logger         *log.Logger
 	mux            sync.Mutex
@@ -42,6 +44,8 @@ type TaskParam struct {
 	Data reflect.Value
 }
 
+// NewTask ...
+//
 func NewTask(name string) *Task {
 	c := config.GetConfig()
 	var (
@@ -189,6 +193,34 @@ func DeserializeTaskParams(serializedTaskParams string) ([]*TaskParam, error) {
 
 }
 
+// Start ...
+func (ts *Task) Start() time.Time {
+	ts.mux.Lock()
+	defer ts.mux.Unlock()
+	return ts.start
+}
+
+func (ts *Task) SetStart(s time.Time) {
+	ts.mux.Lock()
+	defer ts.mux.Unlock()
+	ts.start = s
+
+}
+
+// End ...
+func (ts *Task) End() time.Time {
+	ts.mux.Lock()
+	defer ts.mux.Unlock()
+	return ts.end
+}
+
+func (ts *Task) SetEnd(e time.Time) {
+	ts.mux.Lock()
+	defer ts.mux.Unlock()
+	ts.end = e
+
+}
+
 // SetState ...
 //
 func (ts *Task) SetState(newState string) (string, error) {
@@ -242,8 +274,6 @@ func SetTaskPriorities(rootTask *Task) error {
 }
 
 func verifyDAG(rootTask *Task) bool {
-
-	// TODO: do a better job detecting the D part
 	taskSet := make(map[string]struct{})
 
 	taskQ := []*Task{}
@@ -255,14 +285,11 @@ func verifyDAG(rootTask *Task) bool {
 		_, ok := taskSet[curr.GetHash()]
 		if ok {
 			return false
-		} else {
-			taskSet[curr.GetHash()] = struct{}{}
 		}
+		taskSet[curr.GetHash()] = struct{}{}
 		for _, child := range curr.Children {
 			taskQ = append(taskQ, child.GetTask())
 		}
-
 	}
-
 	return true
 }
