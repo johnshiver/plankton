@@ -385,6 +385,7 @@ type PlanktonRecord struct {
 	SchedulerUUID string
 	SchedulerName string
 	ExecutionTime float64
+	Priority      int
 	StartedAt     time.Time
 	EndedAt       time.Time
 	Version       string
@@ -458,6 +459,7 @@ func (ts *TaskScheduler) recordDAGRun() {
 			StartedAt:     curr.Start(),
 			EndedAt:       curr.End(),
 			Version:       c.Version,
+			Priority:      curr.Priority,
 		}
 		c.DataBase.Create(&newPlanktonRecord)
 		for _, child := range curr.Children {

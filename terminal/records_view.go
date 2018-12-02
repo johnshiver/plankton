@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/gdamore/tcell"
+	"github.com/johnshiver/plankton/config"
 	"github.com/rivo/tview"
 )
 
@@ -27,14 +28,34 @@ func newRecordTableView(doneFunc func()) tview.Primitive {
 	return mainPageFlex
 }
 
+type result struct {
+	TaskParams string
+}
+
 func setTableCells(table *tview.Table) {
 	cTaskScheduler := GetCurrentTaskScheduler()
 	tableData := []string{}
-	tableData = append(tableData, "SchedulerUUID|Start|End|Version")
+	tableData = append(tableData, "SchedulerUUID|Start|End|Version|TaskParams")
 	for _, r := range cTaskScheduler.LastRecords() {
-		line := fmt.Sprintf("%s|%s|%s|%s", r.SchedulerUUID, r.Start[:19], r.End[:19], r.Version)
+		results := []result{}
+		c := config.GetConfig()
+		c.DataBase.Table("plankton_records").
+			Select("task_params").
+			Where("scheduler_uuid = ?", r.SchedulerUUID).
+			Order("ended_at desc").
+			Scan(&results)
+		taskParams := []string{}
+		parmCheck := make(map[string]int)
+		for _, n := range results {
+			parmCheck[n.TaskParams] += 1
+			if parmCheck[n.TaskParams] == 1 {
+				taskParams = append(taskParams, n.TaskParams)
+			}
+		}
+		line := fmt.Sprintf("%s|%s|%s|%s", r.SchedulerUUID, r.Start[:19], r.End[:19], r.Version, strings.Join(taskParams, " "))
 		tableData = append(tableData, line)
 	}
+
 	for row, line := range tableData {
 		for column, cell := range strings.Split(line, "|") {
 			color := tcell.ColorWhite
@@ -46,8 +67,8 @@ func setTableCells(table *tview.Table) {
 			alignment := tview.AlignLeft
 			tableCell := tview.NewTableCell(cell).
 				SetTextColor(color).
-				SetAlign(alignment)
-				// SetSelectable(row != 0)
+				SetAlign(alignment).
+				SetSelectable(row != 0)
 			if column >= 1 {
 				tableCell.SetExpansion(1)
 			}

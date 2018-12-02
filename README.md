@@ -1,5 +1,6 @@
 [![Build Status](https://travis-ci.org/johnshiver/plankton.svg?branch=master)](https://travis-ci.org/johnshiver/plankton)
 [![codecov](https://codecov.io/gh/johnshiver/plankton/branch/master/graph/badge.svg)](https://codecov.io/gh/johnshiver/plankton)
+[![Go Report Card](https://goreportcard.com/badge/github.com/johnshiver/plankton)](https://goreportcard.com/report/github.com/johnshiver/plankton)
 # Plankton - a simple ETL framework for simple, fast ETLs
 
 Plankton is a set of tools you can use to create ETL dags, that is, a graph of tasks

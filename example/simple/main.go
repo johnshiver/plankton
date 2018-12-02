@@ -5,6 +5,7 @@ import (
 	"log"
 
 	"github.com/johnshiver/plankton/borg"
+	"github.com/johnshiver/plankton/config"
 	"github.com/johnshiver/plankton/scheduler"
 	"github.com/johnshiver/plankton/terminal"
 )
@@ -59,15 +60,20 @@ func runSchedulers() {
 	terminal.RunTerminal(borgScheduler)
 }
 
+type result struct {
+	TaskHash string
+}
+
 func scratch() {
-	agg1 := createAgg(10, 20)
-	SimpleScheduler, err := scheduler.NewTaskScheduler("Simple Scheduler", "0 * * * * *", agg1, true)
-	if err != nil {
-		log.Panic(err)
-	}
-	res := SimpleScheduler.LastRecords()
-	for _, r := range res {
-		fmt.Println(r)
+	c := config.GetConfig()
+	results := []result{}
+	c.DataBase.Table("plankton_records").
+		Select("task_hash").
+		Where("scheduler_uuid = ?", "9b38d30a-e95d-4158-54bd-9f517ccd0746").
+		Order("ended_at desc").
+		Scan(&results)
+	for _, r := range results {
+		fmt.Println(r.TaskHash)
 	}
 }
 
