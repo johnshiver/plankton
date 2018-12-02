@@ -52,7 +52,7 @@ func setTableCells(table *tview.Table) {
 				taskParams = append(taskParams, n.TaskParams)
 			}
 		}
-		line := fmt.Sprintf("%s|%s|%s|%s", r.SchedulerUUID, r.Start[:19], r.End[:19], r.Version, strings.Join(taskParams, " "))
+		line := fmt.Sprintf("%s|%s|%s|%s|%s", r.SchedulerUUID, r.Start[:19], r.End[:19], r.Version, strings.Join(taskParams, " "))
 		tableData = append(tableData, line)
 	}
 

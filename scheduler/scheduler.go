@@ -407,9 +407,9 @@ func (ts *TaskScheduler) LastRecords() []Result {
 	c := config.GetConfig()
 	results := []Result{}
 	c.DataBase.Table("plankton_records").
-		Select("schedulerUUID  min(started_at) as start, max(ended_at) as end, version").
+		Select("scheduler_uuid, min(started_at) as start, max(ended_at) as end, version").
 		Where("scheduler_name = ?", ts.Name).
-		Group("schedulerUUID  version").
+		Group("scheduler_uuid, version").
 		Order("ended_at desc").
 		Scan(&results)
 	return results
