@@ -32,11 +32,15 @@ type Task struct {
 	State          string
 	Priority       int
 	Params         []*TaskParam
-	start          time.Time
-	end            time.Time
-	DataProcessed  int
-	Logger         *log.Logger
-	mux            sync.Mutex
+	// start / end for execution
+	start         time.Time
+	end           time.Time
+	DataProcessed int
+	Logger        *log.Logger
+	mux           sync.Mutex
+	// start / end for date range covered by task
+	RangeStart string
+	RangeEnd   string
 }
 
 type TaskParam struct {
@@ -249,11 +253,9 @@ func (ts *Task) SetState(newState string) (string, error) {
 
 // SetTaskPriorities ...
 //
+// Runs DFS on rootTask of task DAG to set task priorities order of precedence
+// Assumes rootTask is a valid dag.
 func SetTaskPriorities(rootTask *Task) error {
-	/*
-	   Runs DFS on rootTask of task DAG to set task priorities order of precedence
-	   Assumes rootTask is a valid dag.
-	*/
 	goodDag := verifyDAG(rootTask)
 	if !goodDag {
 		return fmt.Errorf("Root task runner isnt a valid Task DAG")

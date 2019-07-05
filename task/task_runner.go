@@ -221,3 +221,17 @@ func ClearDAGState(RootRunner TaskRunner) {
 		}
 	}
 }
+
+func SetTaskRanges(RootRunner TaskRunner, rangeStart, rangeEnd string) {
+
+	runnerQ := queue.New()
+	runnerQ.PushBack(RootRunner)
+	for runnerQ.Len() > 0 {
+		curr := runnerQ.PopFront().(TaskRunner)
+		curr.GetTask().RangeStart = rangeStart
+		curr.GetTask().RangeEnd = rangeEnd
+		for _, child := range curr.GetTask().Children {
+			runnerQ.PushBack(child)
+		}
+	}
+}

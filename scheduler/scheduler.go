@@ -133,7 +133,7 @@ func (ts *TaskScheduler) LastRun() string {
 		return "No Runs"
 	}
 	lastRecord := records[0]
-	return lastRecord.EndedAt.Format(time.RFC822Z)
+	return lastRecord.ExecutionEndedAt.Format(time.RFC822Z)
 }
 
 // Status ...
@@ -237,6 +237,17 @@ func (ts *TaskScheduler) prepareRootDagForRun() {
 	task.SetParents(ts.RootRunner)
 	task.ClearDAGState(ts.RootRunner)
 	task.ResetDAGResultChannels(ts.RootRunner)
+
+	// only works if CoversTimeRange is defined
+	if len(ts.CoversTimeRange.StartsAt) > 0 {
+		rangeStart, rangeEnd, err := ts.GetNextRange()
+		if err != nil {
+			ts.Logger.Fatal(err)
+			return
+		}
+		task.SetTaskRanges(ts.RootRunner, rangeStart, rangeEnd)
+	}
+
 }
 
 type TaskRunnerDepth struct {
@@ -394,18 +405,20 @@ func ReCreateStoredDag(RootDAG task.TaskRunner, schedulerUUID string) error {
 //
 type PlanktonRecord struct {
 	gorm.Model
-	TaskName      string
-	TaskParams    string
-	TaskHash      string
-	ParentHash    string
-	ChildHashes   string
-	SchedulerUUID string
-	SchedulerName string
-	ExecutionTime float64
-	Priority      int
-	StartedAt     time.Time
-	EndedAt       time.Time
-	Version       string
+	TaskName           string
+	TaskParams         string
+	TaskHash           string
+	ParentHash         string
+	ChildHashes        string
+	SchedulerUUID      string
+	SchedulerName      string
+	ExecutionTime      float64
+	Priority           int
+	ExecutionStartedAt time.Time // when Execution actually happened
+	ExecutionEndedAt   time.Time
+	StartsAt           string // Time range covered by task
+	EndsAt             string
+	Version            string // version of code that executed this task
 }
 
 // Result ...
@@ -420,6 +433,8 @@ type Result struct {
 // LastRecords ...
 //
 // Returns list of all plankton meta data results
+
+// TODO: this might not be necessary anymore
 func (ts *TaskScheduler) LastRecords() []Result {
 	c := config.GetConfig()
 	results := []Result{}
@@ -465,23 +480,28 @@ func (ts *TaskScheduler) recordDAGRun() {
 			childHash = strings.Join(childHashes, ",")
 		}
 		newPlanktonRecord := PlanktonRecord{
-			TaskName:      curr.Name,
-			TaskParams:    curr.GetSerializedParams(),
-			TaskHash:      curr.GetHash(),
-			ParentHash:    parentHash,
-			ChildHashes:   childHash,
-			SchedulerUUID: ts.uuid.String(),
-			SchedulerName: ts.Name,
-			ExecutionTime: executionTime.Seconds(),
-			StartedAt:     curr.Start(),
-			EndedAt:       curr.End(),
-			Version:       c.Version,
-			Priority:      curr.Priority,
+			TaskName:           curr.Name,
+			TaskParams:         curr.GetSerializedParams(),
+			TaskHash:           curr.GetHash(),
+			ParentHash:         parentHash,
+			ChildHashes:        childHash,
+			SchedulerUUID:      ts.uuid.String(),
+			SchedulerName:      ts.Name,
+			ExecutionTime:      executionTime.Seconds(),
+			ExecutionStartedAt: curr.Start(),
+			ExecutionEndedAt:   curr.End(),
+			Version:            c.Version,
+			Priority:           curr.Priority,
 		}
 		c.DataBase.Create(&newPlanktonRecord)
 		for _, child := range curr.Children {
 			taskQ = append(taskQ, child.GetTask())
 		}
 	}
+
+}
+
+func (ts *TaskScheduler) ReadyToRun() bool {
+	return false
 
 }

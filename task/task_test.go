@@ -314,3 +314,36 @@ func TestSetParents(t *testing.T) {
 	}
 
 }
+
+func TestSetRanges(t *testing.T) {
+	test1 := createTestTaskRunner("test1", 0)
+	test2 := createTestTaskRunner("test2", 0)
+	test3 := createTestTaskRunner("test3", 0)
+	test1.AddChildren(test2)
+	test2.AddChildren(test3)
+	rangeStart := "2019-01-02T00:00:00Z"
+	rangeEnd := "2019-01-03T00:00:00Z"
+	SetParents(test1)
+	SetTaskRanges(test1, rangeStart, rangeEnd)
+
+	var tests = []struct {
+		input              TaskRunner
+		expectedRangeStart string
+		expectedRangeEnd   string
+	}{
+		{test1, rangeStart, rangeEnd},
+		{test2, rangeStart, rangeEnd},
+		{test3, rangeStart, rangeEnd},
+	}
+
+	for _, test := range tests {
+		if test.input.GetTask().RangeStart != test.expectedRangeStart {
+			t.Errorf("TaskRunner %s had RangeStart %s, wanted %s", test.input.GetTask().Name, test.input.GetTask().RangeStart, test.expectedRangeStart)
+		}
+		if test.input.GetTask().RangeEnd != test.expectedRangeEnd {
+			t.Errorf("TaskRunner %s had RangeEnd %s, wanted %s", test.input.GetTask().Name, test.input.GetTask().RangeEnd, test.expectedRangeEnd)
+		}
+
+	}
+
+}
