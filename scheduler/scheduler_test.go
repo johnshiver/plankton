@@ -66,7 +66,7 @@ func TestSaveSchedulerDag(t *testing.T) {
 	t3 := createTestTaskRunner("t3", "test3", 2)
 	t1.GetTask().AddChildren(t2, t3)
 	// create scheduler that doesnt print to standard out
-	testScheduler, err := NewTaskScheduler("TestScheduler", "", t1, true)
+	testScheduler, err := NewTaskScheduler("TestScheduler", "", t1, true, &SchedulerRange{})
 	if err != nil {
 		t.Errorf("Received error from task scheduler %v", err)
 	}
@@ -186,7 +186,7 @@ func TestRecreateStoredDag(t *testing.T) {
 	t3 := createTestTaskRunner("t3", "test3", 2)
 	t1.GetTask().AddChildren(t2, t3)
 	// create scheduler that doesnt print to standard out
-	testScheduler, err := NewTaskScheduler("TestScheduler", "", t1, true)
+	testScheduler, err := NewTaskScheduler("TestScheduler", "", t1, true, &SchedulerRange{})
 	if err != nil {
 		t.Errorf("Received error from task scheduler %v", err)
 	}
@@ -209,8 +209,6 @@ func TestRecreateStoredDag(t *testing.T) {
 
 	if !AreTaskDagsEqual(t1, revivedTest3) {
 		t.Errorf("Task dags were not equal, recreation of stored dag failed")
-		// spew.Dump(revivedTest3)
-		//spew.Dump(firstSchedulerUUID )
 	}
 
 }

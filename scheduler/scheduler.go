@@ -1,6 +1,7 @@
 package scheduler
 
 import (
+	"errors"
 	"fmt"
 	"log"
 	"sort"
@@ -31,16 +32,19 @@ func init() {
 
 // TaskScheduler ...
 // The object responsible for taking the root node of a task DAG and running it via the Start() method.
+//
+// CronSpec: how often ETL will be scheduled by Borg
 type TaskScheduler struct {
-	Name       string
-	RootRunner task.TaskRunner
-	Logger     *log.Logger
-	CronSpec   string
-	status     string
-	uuid       *uuid.UUID
-	recordRun  bool
-	nodes      []task.TaskRunner
-	mux        sync.Mutex
+	Name            string
+	RootRunner      task.TaskRunner
+	Logger          *log.Logger
+	CronSpec        string // this might better belong in the borg package
+	CoversTimeRange *SchedulerRange
+	status          string
+	uuid            *uuid.UUID
+	recordRun       bool
+	nodes           []task.TaskRunner
+	mux             sync.Mutex
 }
 
 // GetTaskSchedulerLogFilePath ...
@@ -55,7 +59,19 @@ func GetTaskSchedulerLogFilePath(schedulerName string) string {
 
 // NewTaskScheduler ...
 // Returns new task scheduler
-func NewTaskScheduler(schedulerName, cronSpec string, RootRunner task.TaskRunner, recordRun bool) (*TaskScheduler, error) {
+func NewTaskScheduler(schedulerName, cronSpec string, RootRunner task.TaskRunner, recordRun bool, covers *SchedulerRange) (*TaskScheduler, error) {
+	var newTaskScheduler *TaskScheduler
+
+	if len(covers.EndsAt) > 0 || len(covers.StartsAt) > 0 {
+		validRange, err := validateSchedulerRange(covers)
+		if err != nil {
+			return newTaskScheduler, err
+		}
+		if !validRange {
+			return newTaskScheduler, errors.New("Invalid SchedulerRange")
+		}
+	}
+
 	loggingFilePath := GetTaskSchedulerLogFilePath(schedulerName)
 
 	logConfig := &lumberjack.Logger{
@@ -96,14 +112,15 @@ func NewTaskScheduler(schedulerName, cronSpec string, RootRunner task.TaskRunner
 		panic("Failed to create uuid for scheduler")
 	}
 	return &TaskScheduler{
-		Name:       schedulerName,
-		CronSpec:   cronSpec,
-		RootRunner: RootRunner,
-		status:     WAITING,
-		uuid:       schedulerUUID,
-		recordRun:  recordRun,
-		nodes:      schedulerNodes,
-		Logger:     schedulerLogger}, nil
+		Name:            schedulerName,
+		CronSpec:        cronSpec,
+		RootRunner:      RootRunner,
+		CoversTimeRange: covers,
+		status:          WAITING,
+		uuid:            schedulerUUID,
+		recordRun:       recordRun,
+		nodes:           schedulerNodes,
+		Logger:          schedulerLogger}, nil
 }
 
 // LastRun ...
