@@ -23,7 +23,6 @@ func validateSchedulerRange(sr *SchedulerRange) (bool, error) {
 	if cadenceDuration < time.Hour {
 		return false, errors.New("Cadence must be at least one hour")
 	}
-
 	startsAt, err := time.Parse(time.RFC3339, sr.StartsAt)
 	if err != nil {
 		return false, err
@@ -78,6 +77,5 @@ func (ts *TaskScheduler) GetNextRange() (string, string, error) {
 }
 
 func (ts *TaskScheduler) IsCalculatedIntervalScheduler() bool {
-	var emptyRange *SchedulerRange
-	return !(ts.CoversTimeRange == emptyRange)
+	return !(*ts.CoversTimeRange == SchedulerRange{})
 }
