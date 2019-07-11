@@ -79,3 +79,8 @@ func TestIsCalculatedIntervalScheduler(t *testing.T) {
 
 func TestGetNextRange(t *testing.T) {
 }
+
+// Tests that scheduler correctly sets interval on its tasks
+func TestSetInterval(t *testing.T) {
+
+}

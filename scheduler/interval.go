@@ -77,5 +77,5 @@ func (ts *TaskScheduler) GetNextRange() (string, string, error) {
 }
 
 func (ts *TaskScheduler) IsCalculatedIntervalScheduler() bool {
-	return !(*ts.CoversTimeRange == SchedulerRange{})
+	return !(*ts.TimeRange == SchedulerRange{})
 }

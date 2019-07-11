@@ -32,6 +32,15 @@ func compareTestTaskParams(a, b *TestTask) bool {
 	return false
 }
 
+func getDefaultSchedulerParams(tr task.TaskRunner) *TaskSchedulerParams {
+	return TaskSchedulerParams{
+		name:       "TestScheduler",
+		rootRuuner: tr,
+		recordRun:  true,
+		timeRange & SchedulerRange{},
+	}
+}
+
 func createTestTaskRunner(name, x string, n int) *TestTask {
 	newRunner := TestTask{
 		task.NewTask(name),
@@ -66,7 +75,8 @@ func TestSaveSchedulerDag(t *testing.T) {
 	t3 := createTestTaskRunner("t3", "test3", 2)
 	t1.GetTask().AddChildren(t2, t3)
 	// create scheduler that doesnt print to standard out
-	testScheduler, err := NewTaskScheduler("TestScheduler", "", t1, true, &SchedulerRange{})
+	schedulerParams := getDefaultSchedulerParams(t1)
+	testScheduler, err := NewTaskScheduler(schedulerParams)
 	if err != nil {
 		t.Errorf("Received error from task scheduler %v", err)
 	}
@@ -186,7 +196,8 @@ func TestRecreateStoredDag(t *testing.T) {
 	t3 := createTestTaskRunner("t3", "test3", 2)
 	t1.GetTask().AddChildren(t2, t3)
 	// create scheduler that doesnt print to standard out
-	testScheduler, err := NewTaskScheduler("TestScheduler", "", t1, true, &SchedulerRange{})
+	schedulerParams := getDefaultSchedulerParams(t1)
+	testScheduler, err := NewTaskScheduler(schedulerParams)
 	if err != nil {
 		t.Errorf("Received error from task scheduler %v", err)
 	}

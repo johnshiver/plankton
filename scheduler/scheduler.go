@@ -35,16 +35,24 @@ func init() {
 //
 // CronSpec: how often ETL will be scheduled by Borg
 type TaskScheduler struct {
-	Name            string
-	RootRunner      task.TaskRunner
-	Logger          *log.Logger
-	CronSpec        string // this might better belong in the borg package
-	CoversTimeRange *SchedulerRange
-	status          string
-	uuid            *uuid.UUID
-	recordRun       bool
-	nodes           []task.TaskRunner
-	mux             sync.Mutex
+	Name       string
+	RootRunner task.TaskRunner
+	Logger     *log.Logger
+	CronSpec   string // this might better belong in the borg package
+	TimeRange  *SchedulerRange
+	status     string
+	uuid       *uuid.UUID
+	recordRun  bool
+	nodes      []task.TaskRunner
+	mux        sync.Mutex
+}
+
+type TaskSchedulerParams struct {
+	name       string
+	cronSpec   string
+	rootRuuner task.TaskRunner
+	recordRun  bool
+	timeRange  *SchedulerRange
 }
 
 // GetTaskSchedulerLogFilePath ...
@@ -59,11 +67,11 @@ func GetTaskSchedulerLogFilePath(schedulerName string) string {
 
 // NewTaskScheduler ...
 // Returns new task scheduler
-func NewTaskScheduler(schedulerName, cronSpec string, RootRunner task.TaskRunner, recordRun bool, covers *SchedulerRange) (*TaskScheduler, error) {
+func NewTaskScheduler(p *TaskSchedulerParams) (*TaskScheduler, error) {
 	var newTaskScheduler *TaskScheduler
 
-	if len(covers.EndsAt) > 0 || len(covers.StartsAt) > 0 {
-		validRange, err := validateSchedulerRange(covers)
+	if len(p.timeRange.EndsAt) > 0 || len(p.timeRange.StartsAt) > 0 {
+		validRange, err := validateSchedulerRange(p.timeRange)
 		if err != nil {
 			return newTaskScheduler, err
 		}
@@ -72,7 +80,7 @@ func NewTaskScheduler(schedulerName, cronSpec string, RootRunner task.TaskRunner
 		}
 	}
 
-	loggingFilePath := GetTaskSchedulerLogFilePath(schedulerName)
+	loggingFilePath := GetTaskSchedulerLogFilePath(p.name)
 
 	logConfig := &lumberjack.Logger{
 		Filename:   loggingFilePath,
@@ -83,11 +91,11 @@ func NewTaskScheduler(schedulerName, cronSpec string, RootRunner task.TaskRunner
 	}
 	schedulerLogger := log.New(logConfig, "scheduler", log.LstdFlags)
 
-	task.SetParents(RootRunner)
+	task.SetParents(p.rootRuuner)
 	// set task params on runner DAG and create list of all task runners
 	schedulerNodes := []task.TaskRunner{}
 	taskQ := []task.TaskRunner{}
-	taskQ = append(taskQ, RootRunner)
+	taskQ = append(taskQ, p.rootRuuner)
 	for len(taskQ) > 0 {
 		curr := taskQ[0]
 		schedulerNodes = append(schedulerNodes, curr)
@@ -99,7 +107,7 @@ func NewTaskScheduler(schedulerName, cronSpec string, RootRunner task.TaskRunner
 		}
 	}
 
-	err := task.SetTaskPriorities(RootRunner.GetTask())
+	err := task.SetTaskPriorities(p.rootRuuner.GetTask())
 	if err != nil {
 		return nil, err
 	}
@@ -112,15 +120,15 @@ func NewTaskScheduler(schedulerName, cronSpec string, RootRunner task.TaskRunner
 		panic("Failed to create uuid for scheduler")
 	}
 	return &TaskScheduler{
-		Name:            schedulerName,
-		CronSpec:        cronSpec,
-		RootRunner:      RootRunner,
-		CoversTimeRange: covers,
-		status:          WAITING,
-		uuid:            schedulerUUID,
-		recordRun:       recordRun,
-		nodes:           schedulerNodes,
-		Logger:          schedulerLogger}, nil
+		Name:       p.name,
+		CronSpec:   p.cronSpec,
+		RootRunner: p.rootRuuner,
+		TimeRange:  p.timeRange,
+		recordRun:  p.recordRun,
+		status:     WAITING,
+		uuid:       schedulerUUID,
+		nodes:      schedulerNodes,
+		Logger:     schedulerLogger}, nil
 }
 
 // LastRun ...
@@ -239,7 +247,7 @@ func (ts *TaskScheduler) prepareRootDagForRun() {
 	task.ResetDAGResultChannels(ts.RootRunner)
 
 	// only works if CoversTimeRange is defined
-	if len(ts.CoversTimeRange.StartsAt) > 0 {
+	if len(ts.TimeRange.StartsAt) > 0 {
 		rangeStart, rangeEnd, err := ts.GetNextRange()
 		if err != nil {
 			ts.Logger.Fatal(err)
