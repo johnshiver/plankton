@@ -1,6 +1,8 @@
 package scheduler
 
 import (
+	"context"
+	"errors"
 	"fmt"
 	"log"
 	"sort"
@@ -23,24 +25,18 @@ const (
 	RUNNING = "running"
 )
 
-func init() {
-	// TODO: surely there is a better way to do this
-	c := config.GetConfig()
-	c.DataBase.AutoMigrate(PlanktonRecord{})
-}
-
 // TaskScheduler ...
 // The object responsible for taking the root node of a task DAG and running it via the Start() method.
 type TaskScheduler struct {
-	Name       string
-	RootRunner task.TaskRunner
-	Logger     *log.Logger
-	CronSpec   string
-	status     string
-	uuid       *uuid.UUID
-	recordRun  bool
-	nodes      []task.TaskRunner
-	mux        sync.Mutex
+	Name      string
+	RootTask  *task.Task
+	Logger    *log.Logger
+	CronSpec  string
+	status    string
+	uuid      *uuid.UUID
+	recordRun bool
+	fullDag   []*task.Task
+	mux       sync.Mutex
 }
 
 // GetTaskSchedulerLogFilePath ...
@@ -55,7 +51,7 @@ func GetTaskSchedulerLogFilePath(schedulerName string) string {
 
 // NewTaskScheduler ...
 // Returns new task scheduler
-func NewTaskScheduler(schedulerName, cronSpec string, RootRunner task.TaskRunner, recordRun bool) (*TaskScheduler, error) {
+func NewTaskScheduler(schedulerName, cronSpec string, rootTask *task.Task, recordRun bool) (*TaskScheduler, error) {
 	loggingFilePath := GetTaskSchedulerLogFilePath(schedulerName)
 
 	logConfig := &lumberjack.Logger{
@@ -67,28 +63,37 @@ func NewTaskScheduler(schedulerName, cronSpec string, RootRunner task.TaskRunner
 	}
 	schedulerLogger := log.New(logConfig, "scheduler", log.LstdFlags)
 
-	task.SetParents(RootRunner)
+	ok, err := task.VerifyDAG(rootTask)
+	if err != nil {
+		return nil, err
+	}
+	if !ok {
+		return nil, errors.New("root task is not a valid dag")
+	}
+
+	rootTask.SetParentOnChildren()
 	// set task params on runner DAG and create list of all task runners
-	schedulerNodes := []task.TaskRunner{}
-	taskQ := []task.TaskRunner{}
-	taskQ = append(taskQ, RootRunner)
+	var (
+		schedulerNodes []*task.Task
+		taskQ          []*task.Task
+	)
+	taskQ = append(taskQ, rootTask)
 	for len(taskQ) > 0 {
 		curr := taskQ[0]
 		schedulerNodes = append(schedulerNodes, curr)
 		taskQ = taskQ[1:]
-		task.CreateAndSetTaskParams(curr)
-		curr.GetTask().Logger = log.New(logConfig, curr.GetTask().Name+"-", log.LstdFlags)
-		for _, child := range curr.GetTask().Children {
+		curr.Logger = log.New(logConfig, curr.Name+"-", log.LstdFlags)
+		for _, child := range curr.Children {
 			taskQ = append(taskQ, child)
 		}
 	}
 
-	err := task.SetTaskPriorities(RootRunner.GetTask())
+	err = task.SetTaskPriorities(rootTask)
 	if err != nil {
 		return nil, err
 	}
 	sort.Slice(schedulerNodes, func(i, j int) bool {
-		return schedulerNodes[i].GetTask().Priority < schedulerNodes[j].GetTask().Priority
+		return schedulerNodes[i].Priority < schedulerNodes[j].Priority
 	})
 
 	schedulerUUID, err := uuid.NewV4()
@@ -96,14 +101,14 @@ func NewTaskScheduler(schedulerName, cronSpec string, RootRunner task.TaskRunner
 		panic("Failed to create uuid for scheduler")
 	}
 	return &TaskScheduler{
-		Name:       schedulerName,
-		CronSpec:   cronSpec,
-		RootRunner: RootRunner,
-		status:     WAITING,
-		uuid:       schedulerUUID,
-		recordRun:  recordRun,
-		nodes:      schedulerNodes,
-		Logger:     schedulerLogger}, nil
+		Name:      schedulerName,
+		CronSpec:  cronSpec,
+		RootTask:  rootTask,
+		status:    WAITING,
+		uuid:      schedulerUUID,
+		recordRun: recordRun,
+		fullDag:   schedulerNodes,
+		Logger:    schedulerLogger}, nil
 }
 
 // LastRun ...
@@ -150,18 +155,20 @@ func (ts *TaskScheduler) Start() {
 		ts.Logger.Println("Scheduler is currently running, skipping run")
 		return
 	}
-	ts.SetStatus(RUNNING)
-	defer ts.SetStatus(WAITING)
+	_ = ts.SetStatus(RUNNING)
+	defer func() {
+		_ = ts.SetStatus(WAITING)
+	}()
 
 	ts.prepareRootDagForRun()
 	ts.setUUID()
 
 	// set worker tokens, this is how we limit concurrency of tasks
 	c := config.GetConfig()
-	workerTokens := []struct{}{}
+	var workerTokens []struct{}
 	var numTokens int
-	if c.ConcurrencyLimit > len(ts.nodes) {
-		numTokens = len(ts.nodes)
+	if c.ConcurrencyLimit > len(ts.fullDag) {
+		numTokens = len(ts.fullDag)
 	} else {
 		numTokens = c.ConcurrencyLimit
 	}
@@ -171,9 +178,12 @@ func (ts *TaskScheduler) Start() {
 
 	// each task returns its token upon completion
 	tokenReturn := make(chan struct{})
+	errorChan := make(chan error)
 	schedulerWG := &sync.WaitGroup{}
 	schedulerWG.Add(1)
-	go task.RunTaskRunner(ts.RootRunner, schedulerWG, tokenReturn)
+	rootCtx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	go task.RunTask(rootCtx, ts.RootTask, schedulerWG, tokenReturn, errorChan)
 
 	finished := make(chan struct{})
 	go func() {
@@ -183,18 +193,22 @@ func (ts *TaskScheduler) Start() {
 
 	taskPriority := 0
 	for _, wToken := range workerTokens {
-		ts.nodes[taskPriority].GetTask().WorkerTokens <- wToken
+		ts.fullDag[taskPriority].WorkerTokens <- wToken
 		taskPriority++
 	}
 
 	done := false
 	for !done {
 		select {
+		case <-rootCtx.Done():
+			ts.Logger.Print("scheduler context is done")
+			done = true
 		case <-finished:
+			ts.Logger.Print("scheduler finished")
 			done = true
 		case returnedToken := <-tokenReturn:
-			if taskPriority < len(ts.nodes) {
-				ts.nodes[taskPriority].GetTask().WorkerTokens <- returnedToken
+			if taskPriority < len(ts.fullDag) {
+				ts.fullDag[taskPriority].WorkerTokens <- returnedToken
 				taskPriority++
 			}
 		}
@@ -217,29 +231,27 @@ func (ts *TaskScheduler) setUUID() {
 // Ensures RootRunner has the correct state before starting a new run.  Since the same data structure is used between runs,
 // it helps to clear state.
 func (ts *TaskScheduler) prepareRootDagForRun() {
-	task.SetParents(ts.RootRunner)
-	task.ClearDAGState(ts.RootRunner)
-	task.ResetDAGResultChannels(ts.RootRunner)
+	ts.RootTask.SetParentOnChildren()
+	task.ClearDAGState(ts.RootTask)
 }
 
 type TaskRunnerDepth struct {
-	runner task.TaskRunner
+	runner *task.Task
 	depth  int
 }
 
 // AreTaskDagsEqual ...
 // Figures out if DAGS are equal by performing breadth first search on each dag, sorting the
 // slice of tasks by depth then hash, then comparing the slices for equality.
-func AreTaskDagsEqual(taskDag1, taskDag2 task.TaskRunner) bool {
+func AreTaskDagsEqual(taskDag1, taskDag2 *task.Task) bool {
 
-	taskDag1RunnerLevels := []TaskRunnerDepth{}
+	var taskDag1RunnerLevels []TaskRunnerDepth
 	runnerQ := queue.New()
 	runnerQ.PushBack(TaskRunnerDepth{taskDag1, 1})
 	for runnerQ.Len() > 0 {
 		curr := runnerQ.PopFront().(TaskRunnerDepth)
-		task.CreateAndSetTaskParams(curr.runner)
 		taskDag1RunnerLevels = append(taskDag1RunnerLevels, curr)
-		for _, child := range curr.runner.GetTask().Children {
+		for _, child := range curr.runner.Children {
 			runnerQ.PushBack(TaskRunnerDepth{child, curr.depth + 1})
 		}
 	}

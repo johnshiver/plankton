@@ -1,18 +1,15 @@
 package task
 
 import (
-	"bytes"
+	"context"
+	"crypto/md5"
+	"encoding/json"
 	"fmt"
-	"hash/fnv"
 	"log"
-	"reflect"
-	"strconv"
-	"strings"
 	"sync"
 	"time"
 
-	"github.com/davecgh/go-spew/spew"
-	"github.com/johnshiver/plankton/config"
+	"github.com/phf/go-queue/queue"
 )
 
 const (
@@ -24,173 +21,38 @@ const (
 // Task ...
 //
 type Task struct {
-	Name           string
-	Children       []TaskRunner
-	Parent         TaskRunner
-	ResultsChannel chan string
-	WorkerTokens   chan struct{}
-	State          string
-	Priority       int
-	Params         []*TaskParam
-	start          time.Time
-	end            time.Time
-	DataProcessed  int
-	Logger         *log.Logger
-	mux            sync.Mutex
-}
+	Name         string
+	Children     []*Task
+	Parent       *Task
+	WorkerTokens chan struct{}
+	State        string
+	Priority     int
+	start        time.Time
+	end          time.Time
+	Logger       *log.Logger
+	mux          sync.Mutex
 
-type TaskParam struct {
-	Name string
-	Data reflect.Value
+	runner Runner
 }
 
 // NewTask ...
 //
-func NewTask(name string) *Task {
-	c := config.GetConfig()
-	var (
-		buf    bytes.Buffer
-		logger = log.New(&buf, "logger: ", log.Lshortfile)
-	)
-	return &Task{
-		Name:           name,
-		Children:       []TaskRunner{},
-		Parent:         nil,
-		ResultsChannel: make(chan string, c.ResultChannelSize),
-		WorkerTokens:   make(chan struct{}, c.ConcurrencyLimit),
-		Priority:       -1,
-		State:          WAITING,
-		Params:         []*TaskParam{},
-		DataProcessed:  0,
-		Logger:         logger,
+func NewTask(name string, runner Runner) Task {
+	return Task{
+		Name:   name,
+		runner: runner,
 	}
 }
 
-func makeStringHash(s string) uint32 {
-	h := fnv.New32a()
-	h.Write([]byte(s))
-	return h.Sum32()
-
-}
-
-// GetHash ...
-// Returns a hash representation of the task.  The elements that comprise the hash are
-//
-//  1. Task.Name
-//  2. Serialized Task Params
-//  3. All Child Serialized Params
-//
-//  These elements are joined together and hashed, which creates a fairly unique value.
-//  This is used primarily to rebuild a TaskRunner from its metadata table or determine
-//  whether two task DAGs are equal.
-func (ts *Task) GetHash() string {
-	stringsToHash := []string{}
-	stringsToHash = append(stringsToHash, ts.Name)
-	stringsToHash = append(stringsToHash, ts.GetSerializedParams())
-	for _, child := range ts.Children {
-		stringsToHash = append(stringsToHash, child.GetTask().GetSerializedParams())
+func (ts *Task) GetHash() (string, error) {
+	raw, err := json.Marshal(ts)
+	if err != nil {
+		return "", fmt.Errorf("while getting hash: %w", err)
 	}
-	finalHash := strings.Join(stringsToHash, "")
-	return fmt.Sprintf("%v", (makeStringHash(finalHash)))
-}
 
-/*
-   Given a Task, return a serialized string to represent it.
-This is useful for storing the state of each Task that is run in the dag, and can
-   be used to re-create a previously run task for DAG re-runs, backfills, or some other
-   use case.
-
-   Example:
-
-    type TestTask struct {
-	    *Task
-	    N int    `task_param:""`
-	    X string `task_param:""`
-	    Z int
-    }
-
-    new_test_task := TestTask{
-	5,
-	"HI",
-	0,
-    }
-    serialized_test_task := new_test_task.GetSerializedParams()
-    fmt.Println(serialized_test_task)
-    > N:INT:5_X:STR:HI
-
-    This function uses a lot of reflection / is kind of tricky. Would be good to document
-    exactly how this works because I constantly forget what these variables mean :P
-*/
-func (ts *Task) GetSerializedParams() string {
-
-	paramStrings := []string{}
-	for _, param := range ts.Params {
-		var dataVal, dataType string
-
-		// TODO: Should support all types in SetParam
-		//       maybe there is a way to combine the logic
-
-		// TODO: add support for some Date type, that should be enough to start
-		//       working on running DAGS, storing their state, then re-running them
-		//       with another command
-		switch param.Data.Kind() {
-		case reflect.Int:
-			dataVal = fmt.Sprintf("%v", param.Data.Int())
-			dataType = "INT"
-		case reflect.String:
-			dataVal = param.Data.String()
-			dataType = "STR"
-		default:
-			// TODO: think about what to do in this case
-			fmt.Printf("Param %s not included in the serialized task, its type is not currently supported.\n", param.Name)
-		}
-
-		paramSerializerElements := []string{
-			param.Name,
-			dataType,
-			dataVal,
-		}
-		paramStrings = append(paramStrings, strings.Join(paramSerializerElements, ":"))
-	}
-	return strings.Join(paramStrings, "_")
-
-}
-
-func DeserializeTaskParams(serializedTaskParams string) ([]*TaskParam, error) {
-	deserializedTaskParams := []*TaskParam{}
-	if len(serializedTaskParams) < 1 {
-		return deserializedTaskParams, nil
-	}
-	hashedParams := strings.Split(serializedTaskParams, "_")
-	for _, param := range hashedParams {
-		splitVals := strings.Split(param, ":")
-		name, dType, dVal := splitVals[0], splitVals[1], splitVals[2]
-		var finalVal reflect.Value
-
-		switch dType {
-		case "INT":
-			finalInt, err := strconv.Atoi(dVal)
-			if err != nil {
-				return nil, fmt.Errorf("Error creating int from serialized Task Param")
-			}
-			finalVal = reflect.ValueOf(finalInt)
-		case "STR":
-			finalVal = reflect.ValueOf(dVal)
-		default:
-			spew.Println(finalVal)
-			fmt.Println("Not supported yet")
-			continue
-		}
-
-		newParam := &TaskParam{
-			Name: name,
-			Data: finalVal,
-		}
-		deserializedTaskParams = append(deserializedTaskParams, newParam)
-
-	}
-	return deserializedTaskParams, nil
-
+	h := md5.New()
+	h.Write(raw)
+	return fmt.Sprintf("%x", h.Sum(nil)), nil
 }
 
 // Start ...
@@ -240,7 +102,7 @@ func (ts *Task) SetState(newState string) (string, error) {
 	}
 
 	if !ValidStateParam {
-		return "", fmt.Errorf("Invalid state on task %s", newState)
+		return "", fmt.Errorf("invalid state on task %s", newState)
 	}
 
 	ts.State = newState
@@ -249,47 +111,129 @@ func (ts *Task) SetState(newState string) (string, error) {
 
 // SetTaskPriorities ...
 //
-func SetTaskPriorities(rootTask *Task) error {
+func SetTaskPriorities(root *Task) error {
 	/*
-	   Runs DFS on rootTask of task DAG to set task priorities order of precedence
-	   Assumes rootTask is a valid dag.
+	   Runs DFS on root of task DAG to set task priorities order of precedence
+	   Assumes root is a valid dag.
 	*/
-	goodDag := verifyDAG(rootTask)
-	if !goodDag {
-		return fmt.Errorf("Root task runner isnt a valid Task DAG")
+	goodDag, err := VerifyDAG(root)
+	if err != nil {
+		return fmt.Errorf("while verifying dag: %w", err)
 	}
+	if !goodDag {
+		return fmt.Errorf("root task %s isnt a valid Task DAG", root.Name)
+	}
+
 	currPriority := 0
 	var setTaskPriorities func(root *Task)
 	setTaskPriorities = func(root *Task) {
 		for _, child := range root.Children {
-			setTaskPriorities(child.GetTask())
+			setTaskPriorities(child)
 		}
 		root.Priority = currPriority
 		root.Logger.Printf("Priority set: %d\n", root.Priority)
 		currPriority++
 	}
 
-	setTaskPriorities(rootTask)
+	setTaskPriorities(root)
 	return nil
 }
 
-func verifyDAG(rootTask *Task) bool {
+func VerifyDAG(rootTask *Task) (bool, error) {
 	taskSet := make(map[string]struct{})
 
-	taskQ := []*Task{}
+	var taskQ []*Task
 	taskQ = append(taskQ, rootTask)
 	for len(taskQ) > 0 {
+		// if we've seen a task, there is a cycle
 		curr := taskQ[0]
 		taskQ = taskQ[1:]
 
-		_, ok := taskSet[curr.GetHash()]
-		if ok {
-			return false
+		hash, err := curr.GetHash()
+		if err != nil {
+			return false, err
 		}
-		taskSet[curr.GetHash()] = struct{}{}
+		_, ok := taskSet[hash]
+		if ok {
+			return false, nil
+		}
+		taskSet[hash] = struct{}{}
 		for _, child := range curr.Children {
-			taskQ = append(taskQ, child.GetTask())
+			taskQ = append(taskQ, child)
 		}
 	}
-	return true
+	return true, nil
+}
+
+func (ts *Task) AddChildren(children []*Task) {
+	ts.mux.Lock()
+	defer ts.mux.Unlock()
+	ts.Children = append(ts.Children, children...)
+}
+
+func (ts *Task) SetParentOnChildren() {
+	for _, child := range ts.Children {
+		child.Parent = ts
+		ts.SetParentOnChildren()
+	}
+}
+
+// RunTaskRunner ...
+// Runs a TaskRunner, sets state and notifies waiting group when run is done
+func RunTask(ctx context.Context, task *Task, wg *sync.WaitGroup, TokenReturn chan struct{}, Errors chan error) {
+	// TODO: add that failsafe i read in rob fig's cron project
+	defer wg.Done()
+
+	// start children in goroutines
+	children := task.Children
+	if len(children) > 0 {
+		var parentWG sync.WaitGroup
+		for _, child := range children {
+			parentWG.Add(1)
+			go RunTask(ctx, child, &parentWG, TokenReturn, Errors)
+		}
+		go func() {
+			parentWG.Wait()
+		}()
+	}
+
+	var (
+		token struct{}
+		done  = false
+	)
+	for !done {
+		select {
+		case <-ctx.Done():
+			task.Logger.Printf("%s canceled by context", task.Name)
+			done = true
+		case token = <-task.WorkerTokens:
+			task.Logger.Printf("Starting %s", task.Name)
+			task.SetStart(time.Now())
+			_, _ = task.SetState(RUNNING)
+			err := task.runner.Run(ctx)
+			if err != nil {
+				Errors <- err
+			}
+			_, _ = task.SetState(COMPLETE)
+			task.SetEnd(time.Now())
+			task.Logger.Printf("%s finished", task.Name)
+			TokenReturn <- token
+			done = true
+		}
+	}
+}
+
+// ClearDAGState ...
+//
+func ClearDAGState(root *Task) {
+	runnerQ := queue.New()
+	runnerQ.PushBack(root)
+	for runnerQ.Len() > 0 {
+		curr := runnerQ.PopFront().(*Task)
+		curr.SetStart(time.Time{})
+		curr.SetEnd(time.Time{})
+		for _, child := range curr.Children {
+			runnerQ.PushBack(child)
+		}
+	}
 }
