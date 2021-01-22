@@ -462,7 +462,7 @@ func (ts *TaskScheduler) recordDAGRun() {
 		newPlanktonRecord := PlanktonRecord{
 			TaskName:      curr.Name,
 			TaskParams:    curr.GetSerializedParams(),
-			TaskHash:      curr.GetHash(),
+			TaskHash:      curr.Hash(),
 			ParentHash:    parentHash,
 			ChildHashes:   childHash,
 			SchedulerUUID: ts.uuid.String(),

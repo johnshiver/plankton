@@ -18,69 +18,45 @@ const (
 	COMPLETE = "complete"
 )
 
-// Task ...
-//
 type Task struct {
 	Name         string
 	Children     []*Task
 	Parent       *Task
-	WorkerTokens chan struct{}
+	WorkerTokens chan struct{} `json:"-"`
 	State        string
 	Priority     int
-	start        time.Time
-	end          time.Time
-	Logger       *log.Logger
-	mux          sync.Mutex
+	Start        time.Time
+	End          time.Time
 
-	runner Runner
+	Logger *log.Logger
+	mux    sync.Mutex
+
+	// might be important that the dag can actually re-hydate
+	// TODO: figure out what to do with this JSON field / determine its utility
+	Runner Runner `json:"Runner"`
 }
 
 // NewTask ...
 //
-func NewTask(name string, runner Runner) Task {
-	return Task{
+func NewTask(name string, runner Runner) *Task {
+	return &Task{
 		Name:   name,
-		runner: runner,
+		Runner: runner,
 	}
 }
 
-func (ts *Task) GetHash() (string, error) {
+func (ts *Task) Hash() (string, error) {
 	raw, err := json.Marshal(ts)
 	if err != nil {
-		return "", fmt.Errorf("while getting hash: %w", err)
+		return "", err
 	}
 
 	h := md5.New()
-	h.Write(raw)
+	_, err = h.Write(raw)
+	if err != nil {
+		return "", err
+	}
 	return fmt.Sprintf("%x", h.Sum(nil)), nil
-}
-
-// Start ...
-func (ts *Task) Start() time.Time {
-	ts.mux.Lock()
-	defer ts.mux.Unlock()
-	return ts.start
-}
-
-func (ts *Task) SetStart(s time.Time) {
-	ts.mux.Lock()
-	defer ts.mux.Unlock()
-	ts.start = s
-
-}
-
-// End ...
-func (ts *Task) End() time.Time {
-	ts.mux.Lock()
-	defer ts.mux.Unlock()
-	return ts.end
-}
-
-func (ts *Task) SetEnd(e time.Time) {
-	ts.mux.Lock()
-	defer ts.mux.Unlock()
-	ts.end = e
-
 }
 
 // SetState ...
@@ -131,7 +107,6 @@ func SetTaskPriorities(root *Task) error {
 			setTaskPriorities(child)
 		}
 		root.Priority = currPriority
-		root.Logger.Printf("Priority set: %d\n", root.Priority)
 		currPriority++
 	}
 
@@ -140,7 +115,7 @@ func SetTaskPriorities(root *Task) error {
 }
 
 func VerifyDAG(rootTask *Task) (bool, error) {
-	taskSet := make(map[string]struct{})
+	taskSet := make(map[*Task]struct{})
 
 	var taskQ []*Task
 	taskQ = append(taskQ, rootTask)
@@ -149,18 +124,12 @@ func VerifyDAG(rootTask *Task) (bool, error) {
 		curr := taskQ[0]
 		taskQ = taskQ[1:]
 
-		hash, err := curr.GetHash()
-		if err != nil {
-			return false, err
-		}
-		_, ok := taskSet[hash]
+		_, ok := taskSet[curr]
 		if ok {
 			return false, nil
 		}
-		taskSet[hash] = struct{}{}
-		for _, child := range curr.Children {
-			taskQ = append(taskQ, child)
-		}
+		taskSet[curr] = struct{}{}
+		taskQ = append(taskQ, curr.Children...)
 	}
 	return true, nil
 }
@@ -174,17 +143,16 @@ func (ts *Task) AddChildren(children []*Task) {
 func (ts *Task) SetParentOnChildren() {
 	for _, child := range ts.Children {
 		child.Parent = ts
-		ts.SetParentOnChildren()
+		child.SetParentOnChildren()
 	}
 }
 
 // RunTaskRunner ...
 // Runs a TaskRunner, sets state and notifies waiting group when run is done
 func RunTask(ctx context.Context, task *Task, wg *sync.WaitGroup, TokenReturn chan struct{}, Errors chan error) {
-	// TODO: add that failsafe i read in rob fig's cron project
 	defer wg.Done()
 
-	// start children in goroutines
+	// Start children in goroutines
 	children := task.Children
 	if len(children) > 0 {
 		var parentWG sync.WaitGroup
@@ -208,14 +176,14 @@ func RunTask(ctx context.Context, task *Task, wg *sync.WaitGroup, TokenReturn ch
 			done = true
 		case token = <-task.WorkerTokens:
 			task.Logger.Printf("Starting %s", task.Name)
-			task.SetStart(time.Now())
+			task.Start = time.Now().UTC()
 			_, _ = task.SetState(RUNNING)
-			err := task.runner.Run(ctx)
+			err := task.Runner.Run(ctx)
 			if err != nil {
 				Errors <- err
 			}
 			_, _ = task.SetState(COMPLETE)
-			task.SetEnd(time.Now())
+			task.End = time.Now().UTC()
 			task.Logger.Printf("%s finished", task.Name)
 			TokenReturn <- token
 			done = true
@@ -230,8 +198,8 @@ func ClearDAGState(root *Task) {
 	runnerQ.PushBack(root)
 	for runnerQ.Len() > 0 {
 		curr := runnerQ.PopFront().(*Task)
-		curr.SetStart(time.Time{})
-		curr.SetEnd(time.Time{})
+		curr.Start = time.Time{}
+		curr.End = time.Time{}
 		for _, child := range curr.Children {
 			runnerQ.PushBack(child)
 		}

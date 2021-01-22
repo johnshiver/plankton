@@ -104,9 +104,9 @@ func TestSaveSchedulerDag(t *testing.T) {
 		input string
 		want  string
 	}{
-		{"t1", t1.GetHash()},
-		{"t2", t2.GetHash()},
-		{"t3", t3.GetHash()},
+		{"t1", t1.Hash()},
+		{"t2", t2.Hash()},
+		{"t3", t3.Hash()},
 	}
 	for _, test := range hashTests {
 		record := recordMap[test.input]
@@ -121,8 +121,8 @@ func TestSaveSchedulerDag(t *testing.T) {
 		want  string
 	}{
 		{"t1", ""},
-		{"t2", t1.GetHash()},
-		{"t3", t1.GetHash()},
+		{"t2", t1.Hash()},
+		{"t3", t1.Hash()},
 	}
 	for _, test := range parentTests {
 		record := recordMap[test.input]

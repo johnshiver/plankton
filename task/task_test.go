@@ -1,69 +1,56 @@
 package task
 
 import (
-	"reflect"
+	"context"
+	"encoding/json"
+	"fmt"
 	"testing"
+	"time"
 
-	"github.com/davecgh/go-spew/spew"
+	"github.com/stretchr/testify/require"
 )
 
-type TestTask struct {
-	*Task
-
-	// TODO: make the test task_param fields more descriptive
-	N int    `task_param:""`
-	X string `task_param:""`
-	Z int
+type TestTaskRunner struct {
+	N    int
+	X    string
+	Z    int
+	Data map[string]int `json:"-"`
 }
 
-func (tt *TestTask) Run() {
-	return
-}
-func (tt *TestTask) GetTask() *Task {
-	return tt.Task
+func (tt *TestTaskRunner) SetStart(_ time.Time) {
 }
 
-func compareTestTaskParams(a, b *TestTask) bool {
-	if a.N == b.N && a.X == b.X {
-		return true
+func (tt *TestTaskRunner) SetEnd(_ time.Time) {
+}
+
+func (tt *TestTaskRunner) Run(_ context.Context) error {
+	if tt.Data == nil {
+		return fmt.Errorf("tt.Data is not initialized")
 	}
-	return false
-}
-
-func createTestTaskRunner(name string, n int) *TestTask {
-	newRunner := TestTask{
-		NewTask(name),
-		n,
-		"TestString",
-		0,
-	}
-	CreateAndSetTaskParams(&newRunner)
-	return &newRunner
-
+	tt.Data[tt.X] = tt.N + tt.Z
+	return nil
 }
 
 func TestVerifyDAG(t *testing.T) {
-	// TODO: add more variations of bad dags
-
-	goodDag := createTestTaskRunner("goodDag", 1)
-	test2 := createTestTaskRunner("test2", 1)
-	test3 := createTestTaskRunner("test3", 1)
-
-	goodDag.GetTask().Children = []TaskRunner{
-		test2,
-		test3,
+	t1 := TestTaskRunner{
+		N: 0,
+		X: "",
+		Z: 0,
+	}
+	goodDag := &Task{Name: "good_dag", Runner: &t1}
+	t2 := &Task{Name: "t2", Runner: &t1}
+	t3 := &Task{Name: "t3", Runner: &t1}
+	goodDag.Children = []*Task{
+		t2, t3,
 	}
 
-	badDag := createTestTaskRunner("badDag", 1)
-	test4 := createTestTaskRunner("test4", 1)
-	test5 := createTestTaskRunner("test5", 1)
-
-	badDag.GetTask().Children = []TaskRunner{
-		test4,
-		test5,
+	badDag := &Task{Name: "bad_dag", Runner: &t1}
+	b2 := &Task{Name: "b2", Runner: &t1}
+	b3 := &Task{Name: "b3", Runner: &t1}
+	badDag.Children = []*Task{
+		b2, b3,
 	}
-
-	test4.GetTask().Children = []TaskRunner{
+	b2.Children = []*Task{
 		badDag,
 	}
 
@@ -71,246 +58,133 @@ func TestVerifyDAG(t *testing.T) {
 		input *Task
 		want  bool
 	}{
-		{goodDag.GetTask(), true},
-		{badDag.GetTask(), false},
+		{goodDag, true},
+		{badDag, false},
 	}
 	for _, test := range tests {
-		if output := verifyDAG(test.input); output != test.want {
-			t.Errorf("VerifyDAG(%v) = %v", test.input, output)
-		}
+		output, err := VerifyDAG(test.input)
+		require.Nil(t, err)
+		require.Equal(t, test.want, output)
 	}
-
 }
 
-// Tests that, given a new task runner, the CreateAndSetTaskParams function correctly
-// creates and sets the task params back on the task runner
-func TestCreateAndSetTaskParams(t *testing.T) {
-	test1 := createTestTaskRunner("test1", 1)
+func TestTaskSerialization(t *testing.T) {
+	t1 := TestTaskRunner{
+		N: 0,
+		X: "",
+		Z: 0,
+	}
+	testTask := &Task{Name: "good_dag", Runner: &t1}
+	bytes, err := json.Marshal(testTask)
+	require.Nil(t, err)
+	require.Equal(t, []byte(`{"Name":"good_dag","Children":null,"Parent":null,"State":"","Priority":0,"Start":"0001-01-01T00:00:00Z","End":"0001-01-01T00:00:00Z","Logger":null,"Runner":{"N":0,"X":"","Z":0}}`), bytes)
+}
 
-	var tests = []struct {
-		input TaskRunner
-		want  []*TaskParam
-	}{
-		{test1, []*TaskParam{
-			&TaskParam{
-				Name: "N",
-				// TODO: this means we need to test getFieldValue too
-				//       or determine it doesnt need to be tested
-				Data: getFieldValue(test1, "N"),
-			},
-			&TaskParam{
-				Name: "X",
-				Data: getFieldValue(test1, "X"),
-			},
+func TestCreateDAGFromJSON(t *testing.T) {
+	t1 := TestTaskRunner{
+		N: 1,
+		X: "1",
+		Z: 1,
+	}
+	t2 := TestTaskRunner{
+		N: 2,
+		X: "2",
+		Z: 2,
+	}
+	t3 := TestTaskRunner{
+		N: 3,
+		X: "3",
+		Z: 3,
+	}
+	goodDag := &Task{Name: "good_dag", Runner: &t1}
+	child1 := &Task{Name: "t2", Runner: &t2}
+	child2 := &Task{Name: "t3", Runner: &t3}
+	goodDag.Children = []*Task{
+		child1, child2,
+	}
+	bytes, err := json.Marshal(goodDag)
+	require.Nil(t, err)
+
+	var (
+		t4 = TestTaskRunner{}
+		t5 = TestTaskRunner{}
+		t6 = TestTaskRunner{}
+	)
+	newDag := &Task{
+		Name:   "new_dag",
+		Runner: &t4,
+		Children: []*Task{
+			{Name: "t2", Runner: &t5},
+			{Name: "t3", Runner: &t6},
 		},
-		},
 	}
-
-	for _, test := range tests {
-		if output, _ := CreateAndSetTaskParams(test.input); !(reflect.DeepEqual(output, test.want)) {
-			t.Errorf("CreateAndSetTaskParams(%v) = %v, wanted: %v", test.input, output, test.want)
-		}
-	}
-
-}
-
-/*
-Check that task runners are serializing their params correctly. Essentially, the same task runner
-With different params set should produce unique serializations.  Doesnt check the actual content
-of the serialized string, just uniqueness.
-*/
-func TestGetSerializedParams(t *testing.T) {
-	test1 := createTestTaskRunner("test1", 1)
-	test2 := createTestTaskRunner("test1", 1)
-
-	test3 := createTestTaskRunner("test3", 2)
-	test4 := createTestTaskRunner("test3", 3)
-
-	test5 := createTestTaskRunner("test5", 1)
-	test6 := createTestTaskRunner("test6", 1)
-
-	test7 := createTestTaskRunner("test7", 2)
-	test8 := createTestTaskRunner("test8", 3)
-
-	var tests = []struct {
-		input []TaskRunner
-		want  bool
-	}{
-		{[]TaskRunner{test1, test2}, true},
-		{[]TaskRunner{test3, test4}, false},
-		{[]TaskRunner{test5, test6}, true},
-		{[]TaskRunner{test7, test8}, false},
-	}
-	for _, test := range tests {
-		serializedTaskParams := []string{}
-		for _, runner := range test.input {
-			CreateAndSetTaskParams(runner)
-			serializedTaskParams = append(serializedTaskParams, runner.GetTask().GetSerializedParams())
-		}
-
-		sParam1, sParam2 := serializedTaskParams[0], serializedTaskParams[1]
-		result := sParam1 == sParam2
-
-		if result != test.want {
-			testInput := spew.Sdump(test.input)
-			t.Errorf("GetSerializedParams Failed %s got %v not %v", string(testInput), result, test.want)
-		}
-	}
-
-}
-
-/*
-Tests the Task.GetHash method, which is built to ensure tasks can be uniquly identified by their
-params + children, i.e. if two task runners have the same params and the same children, they
-should produce the same hash.
-*/
-func TestGetHash(t *testing.T) {
-	test1 := createTestTaskRunner("test1", 1)
-	test2 := createTestTaskRunner("test1", 1)
-
-	test3 := createTestTaskRunner("test3", 3)
-	test4 := createTestTaskRunner("test3", 3)
-
-	test5 := createTestTaskRunner("test5", 1)
-	test6 := createTestTaskRunner("test5", 1)
-
-	test7 := createTestTaskRunner("test7", 2)
-	test8 := createTestTaskRunner("test8", 3)
-
-	test1.AddChildren(test3, test4)
-	test2.AddChildren(test3, test4)
-
-	test5.AddChildren(test7, test8)
-	test6.AddChildren(test7)
-
-	var tests = []struct {
-		input []TaskRunner
-		want  bool
-	}{
-		{[]TaskRunner{test1, test2}, true},
-		{[]TaskRunner{test5, test6}, false},
-		{[]TaskRunner{test7, test8}, false},
-	}
-	for _, test := range tests {
-		taskHashes := []string{}
-		for _, runner := range test.input {
-			taskHashes = append(taskHashes, runner.GetTask().GetHash())
-		}
-
-		firstHash, secondHash := taskHashes[0], taskHashes[1]
-		result := firstHash == secondHash
-
-		if result != test.want {
-			t.Errorf("GetHash Failed got %v not %v: hash1 %s hash2 %s", result, test.want, firstHash, secondHash)
-		}
-	}
-
-}
-
-func TestCreateTaskRunnerFromParams(t *testing.T) {
-	test1 := createTestTaskRunner("test1", 1)
-	// modify default value
-	test1.N = 25
-	taskParams, _ := CreateAndSetTaskParams(test1)
-	test1Clone := createTestTaskRunner("test1Clone", 1)
-	// TODO: re-name this Function
-	CreateTaskRunnerFromParams(test1Clone, taskParams)
-	if !compareTestTaskParams(test1, test1Clone) {
-		t.Errorf("CreateTaskRunnerFromParams failed to clone, %v instead of %v", test1Clone, test1)
-	}
-
-}
-
-func TestCreateParamFromSerializedParam(t *testing.T) {
-	serializedTaskParam1 := "Foop:INT:5"
-	taskParams, _ := DeserializeTaskParams(serializedTaskParam1)
-	newTaskParam := taskParams[0]
-	if newTaskParam.Name != "Foop" {
-		t.Errorf("Failed to set correct name on TaskParam %s", "Foop")
-	}
-	if newTaskParam.Data.Int() != 5 {
-		t.Errorf("Failed to set correct value on TaskParam %d", 5)
-	}
-
-	serializedTaskParam2 := "Poof:STR:HEYA"
-	taskParams, _ = DeserializeTaskParams(serializedTaskParam2)
-	newTaskParam = taskParams[0]
-	if newTaskParam.Name != "Poof" {
-		t.Errorf("Failed to set correct name on TaskParam expected: %s got: %s", "Poof", newTaskParam.Name)
-	}
-	if newTaskParam.Data.String() != "HEYA" {
-		t.Errorf("Failed to set correct value on TaskParam, expected: %s got:%s", "HEYA", newTaskParam.Data.String())
-	}
-
-}
-
-func TestCreateTaskRunnerFromHash(t *testing.T) {
-	// TODO: add string param
-	serializedTaskParam1 := "N:INT:5_X:STR:HEYA"
-	test1 := createTestTaskRunner("test1", 0)
-	_ = CreateAndSetTaskParamsFromHash(test1, serializedTaskParam1)
-	if test1.N != 5 {
-		t.Errorf("Failed to set N on test struct %d", test1.N)
-	}
-	if test1.X != "HEYA" {
-		t.Errorf("Failed to set X on test struct %s", test1.X)
-	}
-	if test1.GetSerializedParams() != serializedTaskParam1 {
-		t.Errorf("Serialized params dont match restored task runner params, %s -> %s", test1.GetSerializedParams(), serializedTaskParam1)
-
-	}
+	err = json.Unmarshal(bytes, newDag)
+	require.Nil(t, err)
 
 }
 
 func TestSetTaskPriorities(t *testing.T) {
-	test1 := createTestTaskRunner("test1", 0)
-	test2 := createTestTaskRunner("test2", 0)
-	test3 := createTestTaskRunner("test3", 0)
-
-	test1.AddChildren(test2)
-	test2.AddChildren(test3)
-
-	err := SetTaskPriorities(test1.GetTask())
-	if err != nil {
-		t.Error(err)
+	t1 := TestTaskRunner{
+		N: 1,
+		X: "1",
+		Z: 1,
 	}
+	newDag := Task{
+		Name:   "new_dag",
+		Runner: &t1,
+		Children: []*Task{
+			{Name: "t2", Runner: &t1},
+			{Name: "t3", Runner: &t1},
+		},
+	}
+
+	err := SetTaskPriorities(&newDag)
+	require.Nil(t, err)
 	var tests = []struct {
-		input            TaskRunner
+		input            *Task
 		expectedPriority int
 	}{
-		{test1, 2},
-		{test2, 1},
-		{test3, 0},
+		{&newDag, 2},
+		{newDag.Children[1], 1},
+		{newDag.Children[0], 0},
 	}
 	for _, test := range tests {
-		if test.input.GetTask().Priority != test.expectedPriority {
-			t.Errorf("TestTaskRunner %s had priority %d but we expected %d", test.input.GetTask().Name, test.input.GetTask().Priority, test.expectedPriority)
-		}
+		require.Equal(t, test.expectedPriority, test.input.Priority)
 	}
 }
 
 func TestSetParents(t *testing.T) {
-	test1 := createTestTaskRunner("test1", 0)
-	test2 := createTestTaskRunner("test2", 0)
-	test3 := createTestTaskRunner("test3", 0)
-	test1.AddChildren(test2)
-	test2.AddChildren(test3)
-	SetParents(test1)
+
+	t1 := TestTaskRunner{
+		N: 1,
+		X: "1",
+		Z: 1,
+	}
+	newDag := Task{Name: "new_dag", Runner: &t1}
+	task1 := Task{Name: "1", Runner: &t1}
+	task2 := Task{Name: "2", Runner: &t1}
+	task3 := Task{Name: "3", Runner: &t1}
+	newDag.Children = []*Task{
+		&task1, &task2,
+	}
+	task2.Children = []*Task{
+		&task3,
+	}
+
+	newDag.SetParentOnChildren()
 
 	var tests = []struct {
-		input          TaskRunner
-		expectedParent TaskRunner
+		input          *Task
+		expectedParent *Task
 	}{
-		{test1, nil},
-		{test2, test1},
-		{test3, test2},
+		{&newDag, nil},
+		{&task1, &newDag},
+		{&task2, &newDag},
+		{&task3, &task2},
 	}
 
 	for _, test := range tests {
-		if test.input.GetTask().Parent != test.expectedParent {
-			t.Errorf("TaskRunner %s didnt have expected parent %s", test.input.GetTask().Name, test.expectedParent)
-		}
-
+		require.Equal(t, test.expectedParent, test.input.Parent)
 	}
 
 }

@@ -2,6 +2,7 @@ package task
 
 import (
 	"context"
+	"time"
 )
 
 // TaskRunner ...
@@ -9,7 +10,7 @@ import (
 type Runner interface {
 	Run(ctx context.Context) error
 
-	// TODO: should implement json unmarshal requirements
-	Serialize(string)
-	Deserialize() string
+	// Only vals the Runner should use to adjust their run
+	SetStart(time.Time)
+	SetEnd(time.Time)
 }
